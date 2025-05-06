@@ -6,6 +6,11 @@ service cloud.firestore {
       allow read, write: if request.auth.uid == userId;
     }
     
+    // Rule for user-specific onboarding answers subcollection
+    match /users/{userId}/onboardingAnswers/{answerId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+    
     // Topics collection rules
     match /topics/{userId}/{topicId} {
       allow read, write: if request.auth.uid == userId;

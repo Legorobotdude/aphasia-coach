@@ -112,6 +112,93 @@ app/
 **Onboarding**
 Collects personal context; after the final step it calls `/api/openai/prompts` to pre‑seed Firestore `topics` and sets `onboardComplete=true`.
 
+4 · Onboarding Wizard (Single‑Page Implementation)
+4.1 Route & File Layout
+pgsql
+Copy
+Edit
+app/
+ └ onboarding/
+     ├ page.tsx          // renders <OnboardingWizard />
+     └ components/
+         ├ Wizard.tsx    // core logic
+         └ Recorder.tsx  // voice recorder hook wrapper
+No additional routes; step transitions are handled by React state.
+
+4.2 Wizard Config (questions array)
+ts
+Copy
+Edit
+// onboarding/questions.ts
+export const QUESTIONS = [
+  { id: 1, label: 'work',    prompt: 'Tell me about your most recent job.' },
+  { id: 2, label: 'family',  prompt: 'Who do you live with and what roles do they play in your life?' },
+  { id: 3, label: 'hobbies', prompt: 'What activities do you enjoy in your free time?' },
+  { id: 4, label: 'culture', prompt: 'Are there any cultural traditions that are important to you?' },
+  { id: 5, label: 'routine', prompt: 'Walk me through a typical morning.' },
+  { id: 6, label: 'goals',   prompt: 'What are your main goals for recovery?' }
+] satisfies readonly {id:number;label:string;prompt:string;}[];
+4.3 URL‑Synced Step State
+tsx
+Copy
+Edit
+// Wizard.tsx
+const router = useRouter();
+const stepParam = Number(router.query.step ?? 1);
+const [step, setStep] = useState(stepParam);
+
+function next() {
+  const nextStep = step + 1;
+  setStep(nextStep);
+  router.replace({ query: { step: nextStep } }, undefined, { shallow: true });
+}
+If the tab reloads, the wizard resumes from the step query param.
+
+4.4 Flow per Step
+Display QUESTIONS[step‑1].prompt.
+
+Recorder component handles mic permission, waveform, timer.
+
+On stop → POST /api/openai/transcribe → returns transcript.
+
+Show editable textarea (unless user toggles “voice‑only”).
+
+On “Looks good”:
+
+ts
+Copy
+Edit
+await writeDoc(
+  doc(db, 'onboardingAnswers', uid, QUESTIONS[step-1].label),
+  { question, transcript, createdAt: serverTimestamp() },
+  { merge: true }
+);
+Call next() or, if step === 6, trigger generatePromptDocs(uid) then redirect /session.
+
+4.5 Progress & Visuals
+tsx
+Copy
+Edit
+<progress value={step} max={QUESTIONS.length} className="w-full h-2 bg-gray-200 rounded" />
+4.6 Offline Resilience
+Recorder stores raw blob + tentative transcript in IndexedDB (key: onboard-{label}) immediately.
+
+A useEffect watches connectivity; when online it flushes any queued answers to Firestore, then deletes the local copy.
+
+If the user reloads offline, wizard loads cached answers and skips completed steps.
+
+4.7 Test Hooks
+Unit: Wizard.test.tsx mocks router, steps through all six prompts with stubbed /api/openai/transcribe.
+
+E2E: Playwright script visits /onboarding?step=4, ensures the prompt matches “cultural traditions”, records stub audio, advances, and finally lands on /session.
+
+4.8 Edge/Tricky Parts & Hints
+Focus management: after transcript loads, auto‑focus textarea for quick edits; return key triggers “Looks good”.
+
+Token expiry mid‑wizard: before every Firestore write call auth.currentUser?.getIdToken(true) if the last refresh > 50 min ago.
+
+Mobile keyboards: add “Voice‑only mode” toggle that skips textarea and uses re‑record flow instead.
+
 **Voice Session Page**
 
 - Fetches a batch of prompts (`/api/openai/prompts?batch=10`).

@@ -1,5 +1,7 @@
 import OpenAI from "openai";
 import "server-only";
+import fs from 'fs';
+import path from 'path';
 
 // Initialize the OpenAI client with API key from environment variables
 const openai = new OpenAI({
@@ -13,11 +15,29 @@ const openai = new OpenAI({
  */
 export async function transcribeAudio(buffer: Buffer): Promise<string> {
   try {
+    // Validate minimum audio length (rough estimation based on buffer size)
+    // Audio file should be at least 0.1 seconds (assuming 16-bit stereo at 44.1kHz)
+    if (buffer.length < 10000) {
+      throw new Error("Audio file is too short. Minimum audio length is 0.1 seconds.");
+    }
+
+    // Create a temporary file
+    const tempFilePath = path.join('/tmp', `audio-${Date.now()}.wav`);
+    fs.writeFileSync(tempFilePath, buffer);
+
+    // Use the file directly from the file system
     const response = await openai.audio.transcriptions.create({
-      file: new File([buffer], "audio.wav", { type: "audio/wav" }),
+      file: fs.createReadStream(tempFilePath),
       model: "whisper-1",
       language: "en",
     });
+
+    // Clean up the temporary file
+    try {
+      fs.unlinkSync(tempFilePath);
+    } catch (cleanupError) {
+      console.error("Failed to clean up temporary file:", cleanupError);
+    }
 
     return response.text;
   } catch (error) {

@@ -23,4 +23,30 @@ if (typeof window !== 'undefined' && !getApps().length) {
   firestore = getFirestore(firebaseApp);
 }
 
-export { firebaseApp, auth, firestore }; 
+// Export the potentially undefined instances if needed directly
+export { firebaseApp, auth };
+
+// Export a getter function for Firestore that ensures initialization
+export function getFirestoreInstance(): Firestore {
+  if (!firestore) {
+    if (typeof window !== 'undefined') {
+      if (!getApps().length) {
+        // Initialize if not already done (e.g., during SSR/fast refresh edge cases)
+        const app = initializeApp(firebaseConfig);
+        firestore = getFirestore(app);
+      } else {
+        // Use the existing app if initialization happened but variable wasn't assigned (unlikely but safe)
+        firestore = getFirestore(getApps()[0]);
+      }
+    } else {
+      // This case should ideally not happen if called from client-side code
+      // But throw an error to make it explicit
+      throw new Error("Firestore can only be initialized on the client-side.");
+    }
+  }
+  if (!firestore) {
+     // If it's STILL undefined after the above, something is wrong
+     throw new Error("Failed to initialize Firestore.");
+  }
+  return firestore;
+} 

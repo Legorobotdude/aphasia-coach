@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 interface RecorderState {
   isRecording: boolean;
@@ -36,14 +36,26 @@ export function useRecorder(options: UseRecorderOptions = {}) {
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
 
   // Default options
-  const {
-    audioBitsPerSecond = 16000,
-    mimeType = "audio/webm",
-    onDataAvailable,
-  } = options;
+  const audioBitsPerSecond = options.audioBitsPerSecond || 16000;
+  const mimeType = options.mimeType || "audio/webm";
+  
+  // Store callback in ref to avoid dependency changes
+  const onDataAvailableRef = useRef<((blob: Blob) => void) | undefined>(
+    options.onDataAvailable
+  );
+  
+  // Update ref if callback changes
+  useEffect(() => {
+    onDataAvailableRef.current = options.onDataAvailable;
+  }, [options.onDataAvailable]);
 
   // Start recording function
   const startRecording = useCallback(async () => {
+    // Don't try to start if already recording
+    if (recorderState.isRecording) {
+      return;
+    }
+
     try {
       // Reset state
       setRecorderState({
@@ -93,8 +105,9 @@ export function useRecorder(options: UseRecorderOptions = {}) {
           isRecording: false,
         }));
 
-        if (onDataAvailable) {
-          onDataAvailable(finalBlob);
+        // Use the ref to access the latest callback
+        if (onDataAvailableRef.current) {
+          onDataAvailableRef.current(finalBlob);
         }
 
         // Clean up stream tracks
@@ -116,7 +129,7 @@ export function useRecorder(options: UseRecorderOptions = {}) {
         error: error instanceof Error ? error : new Error(String(error)),
       }));
     }
-  }, [audioBitsPerSecond, mimeType, onDataAvailable]);
+  }, [audioBitsPerSecond, mimeType, recorderState.isRecording]);
 
   // Stop recording function
   const stopRecording = useCallback(() => {
