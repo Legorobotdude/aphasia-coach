@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
@@ -26,6 +26,13 @@ let db: IDBDatabase | null = null;
 // Initialize IndexedDB
 async function initDB() {
   return new Promise<IDBDatabase>((resolve, reject) => {
+    // Check if running in a browser environment before accessing indexedDB
+    if (typeof window === 'undefined' || !window.indexedDB) {
+      console.warn("IndexedDB is not available in this environment.");
+      // Resolve with null or a mock DB if necessary for server-side rendering or testing
+      resolve(null as any); // Or handle appropriately
+      return;
+    }
     const request = indexedDB.open(DB_NAME, 1);
 
     request.onerror = () => reject("Error opening IndexedDB");
@@ -88,11 +95,31 @@ export function OnboardingWizard() {
 
   // Enhanced Recording State
   const [wizardState, setWizardState] = useState<
-    "ready" | "recording" | "transcribing" | "confirming"
+    "ready" | "playing_question" | "recording" | "transcribing" | "confirming"
   >("ready");
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [recorderError, setRecorderError] = useState<Error | null>(null); // Specific recorder errors
   const [timer, setTimer] = useState<NodeJS.Timeout | null>(null);
+  const [hasUserGestured, setHasUserGestured] = useState(false); // New state
+
+  // --- AudioContext for playing API-sourced audio --- //
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
+  const [isQuestionPlaying, setIsQuestionPlaying] = useState(false);
+  const [currentAudioSource, setCurrentAudioSource] = useState<AudioBufferSourceNode | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && !audioContext) {
+      const newAudioContext = new window.AudioContext();
+      setAudioContext(newAudioContext);
+    }
+    return () => {
+      currentAudioSource?.stop(); // Stop any playing audio
+      currentAudioSource?.disconnect();
+      audioContext?.close().catch(console.error); // Clean up on unmount
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount
+  // --- End AudioContext --- //
 
   // Current question
   const currentQuestion = QUESTIONS[step - 1];
@@ -144,6 +171,85 @@ export function OnboardingWizard() {
 
     checkCachedData();
   }, [currentQuestion.label]);
+
+  // --- TTS Functionality --- //
+  const playCurrentQuestion = useCallback(async () => {
+    if (!currentQuestion || !currentQuestion.prompt || !audioContext || isQuestionPlaying) {
+      return;
+    }
+
+    if (!hasUserGestured) setHasUserGestured(true); // Record user gesture
+
+    console.log("Playing question:", currentQuestion.prompt);
+    setIsQuestionPlaying(true);
+    setWizardState("playing_question"); // Set wizard state
+
+    try {
+      // Stop any previously playing audio
+      if (currentAudioSource) {
+        currentAudioSource.stop();
+        currentAudioSource.disconnect();
+        setCurrentAudioSource(null);
+      }
+       // Ensure AudioContext is running
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
+
+      const response = await fetch("/api/openai/tts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text: currentQuestion.prompt }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          `TTS API request failed: ${response.status} - ${errorData.error || "Unknown API error"}`,
+        );
+      }
+
+      const audioData = await response.arrayBuffer();
+      if (audioData.byteLength === 0) {
+        throw new Error("TTS API returned empty audio data.");
+      }
+
+      const audioBuffer = await audioContext.decodeAudioData(audioData);
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioContext.destination);
+      setCurrentAudioSource(source); // Store the source node
+
+      source.onended = () => {
+        console.log("Question finished playing.");
+        setIsQuestionPlaying(false);
+        setCurrentAudioSource(null);
+        setWizardState("ready"); // Transition to ready after question plays
+      };
+      source.start();
+    } catch (err) {
+      console.error("Error playing question audio:", err);
+      setError(err instanceof Error ? err.message : "Failed to play question");
+      setIsQuestionPlaying(false);
+      setCurrentAudioSource(null);
+      setWizardState("ready"); // Revert to ready on error
+    }
+  }, [currentQuestion, audioContext, isQuestionPlaying, currentAudioSource, hasUserGestured]);
+
+  // Auto-play question when step changes or component mounts with a valid question
+  useEffect(() => {
+    // Only auto-play if it's not the first step on initial load without a gesture,
+    // OR if a user gesture has already occurred.
+    if (currentQuestion && audioContext && wizardState === "ready" && !isQuestionPlaying) {
+      if (step > 1 || hasUserGestured) {
+         playCurrentQuestion();
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestion, audioContext, step, hasUserGestured]); // Added step and hasUserGestured
+  // --- End TTS Functionality --- //
 
   // Update URL when step changes
   useEffect(() => {
@@ -234,8 +340,18 @@ export function OnboardingWizard() {
     setError(null);
     setRecorderError(null);
     setTranscript(""); // Clear previous transcript
-    // setRecordingBlob(null); // No blob state to clear
     setRecordingSeconds(0); // Reset timer
+
+    if (!hasUserGestured) setHasUserGestured(true); // Record user gesture
+
+    // Stop TTS if it's playing
+    if (currentAudioSource) {
+      currentAudioSource.stop();
+      currentAudioSource.disconnect();
+      setCurrentAudioSource(null);
+      setIsQuestionPlaying(false);
+    }
+
     console.log("Ready clicked, starting recording...");
     startRecording();
     setWizardState("recording");
@@ -385,14 +501,32 @@ export function OnboardingWizard() {
         className="w-full h-2 rounded-md bg-gray-200 dark:bg-gray-700 [&::-webkit-progress-bar]:rounded-md [&::-webkit-progress-bar]:bg-gray-200 dark:[&::-webkit-progress-bar]:bg-gray-700 [&::-webkit-progress-value]:rounded-md [&::-webkit-progress-value]:bg-blue-500 dark:[&::-webkit-progress-value]:bg-blue-400"
       />
 
-      {/* Question Prompt */}
-      <div className="p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-md shadow-sm">
-        <p className="text-lg font-semibold text-blue-800 dark:text-blue-200">
-          Step {step}:
-        </p>
-        <p className="mt-1 text-xl text-gray-700 dark:text-gray-300">
-          {currentQuestion.prompt}
-        </p>
+      {/* Question Prompt & Play Button */}
+      <div className="p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-md shadow-sm flex items-center justify-between">
+        <div>
+          <p className="text-lg font-semibold text-blue-800 dark:text-blue-200">
+            Step {step}:
+          </p>
+          <p className="mt-1 text-xl text-gray-700 dark:text-gray-300">
+            {currentQuestion.prompt}
+          </p>
+        </div>
+        <button
+          onClick={playCurrentQuestion}
+          disabled={isQuestionPlaying || !audioContext}
+          className="ml-4 p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          aria-label="Play question audio"
+        >
+          {isQuestionPlaying ? (
+            <svg className="w-6 h-6 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.75V6.25M12 17.75V19.25M5.75002 5.75002L6.81002 6.81002M17.19 17.19L18.25 18.25M4.75 12H6.25M17.75 12H19.25M6.81002 17.19L5.75002 18.25M18.25 5.75002L17.19 6.81002" />
+            </svg>
+          ) : (
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.536 8.464A5 5 0 0112 11.035V17.586a.5.5 0 01-.814.39L7.186 15.58a5 5 0 010-7.16l4-2.4a.5.5 0 01.814.39v3.055zM12 6.035a7 7 0 010 11.93" />
+            </svg>
+          )}
+        </button>
       </div>
 
       {/* Main Interaction Area */}
@@ -401,10 +535,19 @@ export function OnboardingWizard() {
         {wizardState === "ready" && (
           <button
             onClick={handleReady}
-            className="px-8 py-4 bg-green-500 hover:bg-green-600 text-white text-xl font-bold rounded-full shadow-lg transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+            disabled={isQuestionPlaying} // Disable if question is playing
+            className="px-8 py-4 bg-green-500 hover:bg-green-600 text-white text-xl font-bold rounded-full shadow-lg transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Ready to Answer
           </button>
+        )}
+
+        {/* State: Playing Question (Visual Cue - can be a spinner or message) */}
+        {wizardState === "playing_question" && (
+          <div className="text-center py-4">
+            <p className="text-lg text-gray-600 dark:text-gray-400">Playing question...</p>
+            {/* Optional: Add a more prominent loading indicator here */}
+          </div>
         )}
 
         {/* State: Recording */}

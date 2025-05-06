@@ -14,6 +14,11 @@ service cloud.firestore {
       match /onboardingAnswers/{answerId} {
         allow read, write: if request.auth.uid == userId;
       }
+
+      // Generated Prompts Subcollection Rules
+      match /generatedPrompts/{promptId} {
+        allow read, write: if request.auth.uid == userId;
+      }
     }
     
     // Topics collection rules
