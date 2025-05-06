@@ -4,11 +4,11 @@ service cloud.firestore {
     // User document rules
     match /users/{userId} {
       allow read, write: if request.auth.uid == userId;
-    }
-    
-    // Rule for user-specific onboarding answers subcollection
-    match /users/{userId}/onboardingAnswers/{answerId} {
-      allow read, write: if request.auth.uid == userId;
+      
+      // Invites Subcollection Rules
+      match /invites/{inviteId} {
+        allow read, write: if request.auth.uid == userId;
+      }
     }
     
     // Topics collection rules
@@ -16,20 +16,25 @@ service cloud.firestore {
       allow read, write: if request.auth.uid == userId;
     }
     
-    // Sessions collection rules
-    match /sessions/{userId}/{sessionId} {
-      allow read, write: if request.auth.uid == userId;
+    // Sessions collection (Top-level by session ID)
+    match /sessions/{sessionId} {
+      allow read: if request.auth.uid == resource.data.ownerUid;
+      allow write: if (request.method == 'create' && request.resource.data.ownerUid == request.auth.uid) || 
+                     (request.method == 'update' && resource.data.ownerUid == request.auth.uid);
+                     
+      // Utterances subcollection (Direct path access)
+      match /utterances/{utteranceId} {
+        allow read, write: if exists(/databases/$(database)/documents/sessions/$(sessionId)) &&
+                           request.auth.uid == get(/databases/$(database)/documents/sessions/$(sessionId)).data.ownerUid;
+      }
     }
     
-    // Utterances collection rules
-    match /utterances/{sessionId}/{uttId} {
-      allow read, write: if isSessionOwner(sessionId);
-    }
-    
-    // Helper function to check session ownership
-    function isSessionOwner(sessionId) {
-      let sessionPath = /databases/$(database)/documents/sessions/$(request.auth.uid)/$(sessionId);
-      return exists(sessionPath);
+    // Utterances CollectionGroup Query Rule
+    match /utterances/{utteranceId} {
+        // Allow read if the ownerUid field exists AND matches the user.
+        allow read: if 'ownerUid' in resource.data && request.auth.uid == resource.data.ownerUid;
+        // Deny write via collection group for safety.
+        allow write: if false;
     }
   }
-} 
+}

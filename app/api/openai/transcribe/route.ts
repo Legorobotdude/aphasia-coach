@@ -69,7 +69,8 @@ export async function POST(req: NextRequest) {
     
     console.log(`[API /transcribe] Converting Blob to Buffer (size: ${buffer.length})`);
 
-    // Check minimum audio size
+    // Check minimum audio size - REMOVED - Let Whisper API handle duration validation
+    /*
     if (buffer.length < 10000) {
       console.warn('[API /transcribe] Audio buffer too short. Rejecting.');
       return NextResponse.json(
@@ -77,6 +78,7 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    */
     
     console.log('[API /transcribe] Calling OpenAI wrapper...');
     // Call OpenAI through our wrapper

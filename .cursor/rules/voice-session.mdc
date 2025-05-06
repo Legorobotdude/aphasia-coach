@@ -1,0 +1,92 @@
+---
+description: Voice Session
+globs: 
+alwaysApply: false
+---
+# Voice Session Feature (`/session`)
+
+This rule describes the core voice interaction feature of the Aphasia Coach app, located under [app/session](mdc:app/session).
+
+## Overview
+
+The voice session presents users with prompts, records their spoken responses, gets them transcribed and scored via OpenAI APIs, provides feedback, and logs results to Firestore.
+
+## Key Components
+
+*   **Entry Point:** [app/session/page.tsx](mdc:app/session/page.tsx)
+    *   Handles authentication checks.
+    *   Renders the main `<VoiceSession />` component.
+*   **Core Logic:** [app/session/components/VoiceSession.tsx](mdc:app/session/components/VoiceSession.tsx)
+    *   Manages the session lifecycle using a `useReducer` state machine (states: IDLE, INITIALIZING_SESSION, SESSION_READY, PLAYING_PROMPT, RECORDING, PROCESSING, FEEDBACK, COMPLETE, ERROR).
+    *   Fetches prompts using SWR from `/api/openai/prompts`.
+    *   Integrates the `useRecorder` hook from [lib/audio.ts](mdc:lib/audio.ts) for audio capture.
+    *   Handles Text-to-Speech (TTS) using `window.speechSynthesis`.
+    *   Orchestrates API calls to `/api/openai/transcribe` and `/api/openai/score`.
+    *   Calculates recording latency.
+    *   Persists data to Firestore.
+    *   Renders child UI components based on the current state.
+*   **Audio Hook:** [lib/audio.ts](mdc:lib/audio.ts)
+    *   Provides the `useRecorder` hook which handles microphone access, recording, stopping, resampling (especially for iOS), and provides the audio Blob via `onDataAvailable`.
+*   **UI Components:** Located in [app/session/components](mdc:app/session/components)
+    *   [PromptCard.tsx](mdc:app/session/components/PromptCard.tsx): Displays prompt text and TTS play button.
+    *   [RecorderControls.tsx](mdc:app/session/components/RecorderControls.tsx): Displays recording status, stop button, and integrates the [LatencyTicker.tsx](mdc:app/session/components/LatencyTicker.tsx).
+    *   [FeedbackOverlay.tsx](mdc:app/session/components/FeedbackOverlay.tsx): Shows score, feedback message (Great/Almost/Try Later), and Next/Finish button.
+    *   [ProgressRing.tsx](mdc:app/session/components/ProgressRing.tsx): Visual indicator of session progress (X/Total).
+    *   [LatencyTicker.tsx](mdc:app/session/components/LatencyTicker.tsx): Displays elapsed recording time.
+
+## Data Flow & Persistence
+
+1.  Prompts are fetched from `/api/openai/prompts`.
+2.  When prompts load, an initial session document is created at `sessions/{sessionId}` containing `{ ownerUid, startedAt, promptCount }`.
+3.  After each prompt response is recorded and processed:
+    *   Audio blob sent to `/api/openai/transcribe`.
+    *   Transcript + Prompt sent to `/api/openai/score`.
+    *   Resulting utterance data (prompt, response, score, latency, feedback, ownerUid, sessionId) is written as a new document to the subcollection: `sessions/{sessionId}/utterances/{utteranceId}`.
+4.  After the last prompt, a session summary (accuracy, avg latency, duration) is merged into the main session document at `sessions/{sessionId}`.
+
+## Firestore Rules
+
+Security rules are defined in [firestore.rules](mdc:firestore.rules). Access to `sessions/{sessionId}` and its `utterances` subcollection is controlled by checking the `ownerUid` field within the session document against the authenticated user's ID.
+
+## Important Considerations
+
+*   **State Management:** The `useReducer` in `VoiceSession.tsx` is central to the component's operation.
+*   **API Interaction:** Key backend logic resides in the `/api/openai/*` routes and their corresponding functions in [lib/openai.ts](mdc:lib/openai.ts).
+*   **Firestore Structure:** Uses a top-level `sessions` collection with unique IDs, storing `ownerUid` within the document. Utterances are in a subcollection.
+*   **(Planned) Offline Mode:** Logic for caching prompts and syncing offline utterances is planned but not yet implemented.
+
+## Firestore Data Structure Details
+
+This section details the specific fields stored in Firestore for the voice session feature.
+
+**1. Path Structure**
+
+*   **Session Documents:** `sessions/{sessionId}`
+    *   Stored in a top-level collection.
+    *   `{sessionId}` is a unique, auto-generated ID.
+*   **Utterance Documents:** `sessions/{sessionId}/utterances/{utteranceId}`
+    *   Stored in a subcollection under a specific session document.
+    *   `{utteranceId}` is a unique, auto-generated ID.
+
+**2. Session Document Fields (`sessions/{sessionId}`)**
+
+*   **`ownerUid`** (string): Firebase Auth UID of the user. Set on initial creation.
+*   **`startedAt`** (Timestamp): Server timestamp when the session document was created.
+*   **`promptCount`** (number): Total number of prompts intended for the session.
+*   **`completedAt`** (Timestamp): Server timestamp when the session summary was written.
+*   **`durationSec`** (number): Total session duration in seconds.
+*   **`accuracy`** (number): Average score (0-1) across completed utterances.
+*   **`latencyMs`** (number): Average response latency (ms) across completed utterances.
+*   **`completedCount`** (number): Number of utterances successfully processed in the session.
+
+**3. Utterance Document Fields (`sessions/{sessionId}/utterances/{utteranceId}`)**
+
+*   **`prompt`** (string): The prompt text.
+*   **`promptId`** (string): The ID of the specific prompt object used.
+*   **`response`** (string): The transcribed user response.
+*   **`score`** (number | null): The score (0-1) from OpenAI, or null if scoring failed.
+*   **`feedback`** (string): Textual feedback from OpenAI.
+*   **`latencyMs`** (number | null): Calculated response latency in milliseconds, or null if calculation failed.
+*   **`createdAt`** (Timestamp): Server timestamp when the utterance document was written.
+*   **`ownerUid`** (string): Firebase Auth UID of the user (redundant, for potential queries).
+*   **`sessionId`** (string): ID of the parent session document (redundant, for potential queries).

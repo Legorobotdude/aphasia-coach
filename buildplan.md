@@ -201,17 +201,215 @@ Mobile keyboards: add “Voice‑only mode” toggle that skips textarea and use
 
 **Voice Session Page**
 
-- Fetches a batch of prompts (`/api/openai/prompts?batch=10`).
-- For each prompt:
+6 · Voice Session Screen (Full, High‑Fidelity Spec)
+(The heart of the product. Hand this section to your coding sub‑LLM right after the Dashboard step.)
 
-  1. Plays TTS via `SpeechSynthesis`.
-  2. Records the user’s answer, shows waveform.
-  3. Sends audio → `/api/openai/transcribe` → gets text.
-  4. Calls `/api/openai/score` with `{prompt,text}` → receives `{score, latency}`.
-  5. Displays green/yellow/red flash and brief spoken feedback.
-  6. Stores an `utterances` doc.
+6.1 Purpose
+Deliver 10–12 adaptive prompts in a hands‑free loop.
 
-- After 10 prompts, writes a `sessions` doc with aggregate stats and navigates to Dashboard.
+Capture and transcribe each user response, then score meaning & latency via OpenAI.
+
+Provide immediate, encouraging spoken + visual feedback.
+
+Persist granular utterance data plus session summary to Firestore.
+
+Support two modes:
+
+Standard – mixed familiar + stretch prompts.
+
+Focus – targeted list (e.g., “Words to Revisit”) via query param.
+
+6.2 Route & File Layout
+less
+Copy
+Edit
+app/
+ └ session/
+     ├ page.tsx                // <VoiceSession />
+     └ components/
+         ├ PromptCard.tsx
+         ├ RecorderControls.tsx
+         ├ FeedbackOverlay.tsx
+         ├ ProgressRing.tsx
+         └ LatencyTicker.tsx
+ lib/
+ └ audio/
+     ├ useRecorder.ts          // hook returns {start, stop, isRecording, blob}
+     └ downsample.ts           // 48→16 kHz PCM util
+6.3 URL Parameters & Modes
+bash
+Copy
+Edit
+/session                 → Standard (batch from /prompts)
+/session?mode=focus&ids=word1,word2  → Focus practice
+If mode=focus, /api/openai/prompts returns only those words in shuffled order.
+
+6.4 UI / Interaction Flow
+Prefetch prompts:
+
+ts
+Copy
+Edit
+const { data: prompts } = useSWR('/api/openai/prompts?batch=12');
+PromptCard renders current prompt text; when user taps Play (speaker icon), call:
+
+ts
+Copy
+Edit
+speechSynthesis.speak(new SpeechSynthesisUtterance(prompt.text));
+RecorderControls show mic button. On tap:
+
+request getUserMedia({ audio: true });
+
+start MediaRecorder;
+
+display LatencyTicker (counts seconds).
+
+On mic stop:
+
+Use downsample.ts to 16 kHz mono WAV; size ≤ 1 MB.
+
+POST to /api/openai/transcribe → { transcript }.
+
+POST to /api/openai/score → { score (0‑1), feedback, latency }.
+
+Display FeedbackOverlay:
+
+Green (≥ 0.8) “Great!” / Yellow (0.6‑0.79) “Almost” / Red (< 0.6) “Let’s try again later.”
+
+Also speak feedback via TTS.
+
+Persist utterance:
+
+ts
+Copy
+Edit
+await addDoc(collection(db, 'utterances', sessionId), {
+  prompt,
+  response: transcript,
+  score,
+  latencyMs: latency,
+  createdAt: serverTimestamp(),
+  ownerUid: uid
+});
+ProgressRing animates (10 slices). After 10 prompts:
+
+Compute aggregate stats (accuracy = mean scores).
+
+Write sessions/{uid}/{sessionId}.
+
+Navigate to /dashboard?justFinished=true.
+
+6.5 State Machine Diagram
+lua
+Copy
+Edit
+IDLE → PLAY_PROMPT → RECORDING → PROCESSING → FEEDBACK → (next prompt or COMPLETE)
+Managed via useReducer to keep effects predictable.
+
+6.6 Firestore Write Shapes
+js
+Copy
+Edit
+// sessions/{uid}/{sessionId}
+{
+  startedAt: Timestamp,
+  durationSec: number,
+  accuracy: number,      // mean(score)
+  latencyMs: number,     // mean(latency)
+  promptCount: number
+}
+6.7 Offline & Retry Logic
+On start, cache the fetched prompts array in localforage.
+
+If offline mid‑session:
+
+Skip /transcribe & /score. Store utterances locally with score = null.
+
+Show toast “Offline practice—results will sync later.”
+
+A background syncPendingUtterances() runs on navigator.onLine event—transcribes & scores missed items, then writes session.
+
+6.8 Accessibility & UX Details
+Single‑tap workflow – play prompt auto‑starts mic unless setting manualMic.
+
+Keyboard‑free – all controls accessible via big 64 px buttons.
+
+Color‑blind safe – use shapes/icons alongside traffic‑light colors.
+
+Voice feedback uses the same locale voice selected in onboarding settings.
+
+6.9 API Route Contracts (Recap)
+POST /api/openai/transcribe → { transcript }
+
+Accepts audio/wav; rejects > 1 MB.
+
+POST /api/openai/score → { score, feedback, latency }
+
+Prompt engineering hint for sub‑LLM:
+
+makefile
+Copy
+Edit
+System: You are a speech therapist grading word-retrieval.
+UserPrompt: <prompt>
+PatientReply: <transcript>
+## Evaluate semantic accuracy (0-1) and give one-sentence gentle feedback.
+GET /api/openai/prompts?batch=N&mode=focus&ids=... → Prompt[]
+
+Returns objects { id, text, label }.
+
+6.10 Testing Plan
+Unit
+
+useRecorder fires onStop with Blob length > 0.
+
+computeSessionStats() given fake utterances returns correct accuracy.
+
+Integration
+
+Mock /transcribe & /score; render <VoiceSession>; step through 3 prompts; expect 3 Firestore utterances docs.
+
+E2E (Playwright)
+
+Use fixture prompts & prerecorded answers.
+
+Validate FeedbackOverlay color matches expected score.
+
+Verify redirect to /dashboard at completion and sessions doc exists.
+
+Performance
+
+Ensure TTI < 2 s on cold PWA launch.
+
+Audio round‑trip (stop mic → feedback overlay) target ≤ 1200 ms on good network.
+
+6.11 Edge / Tricky Parts & Hints
+Mic permission persistence – browsers ask permission once per session; if user blocks, display modal with link to settings.
+
+SpeechSynthesis cut‑off iOS bug – always call speechSynthesis.cancel() before new utterance.
+
+Back‑pressure on OpenAI quota – queue calls with p-limit(1) so only one prompt processes at a time.
+
+Unsaved exit – if window unloads mid‑prompt, use beforeunload listener to persist draftUtterance to IndexedDB.
+
+6.12 Implementation Order for Sub‑LLM
+Build useRecorder hook + downsample.ts; mock tests.
+
+Scaffold /api/openai/transcribe & /score routes (dev uses fake services first).
+
+Implement <VoiceSession> skeleton with PromptCard & ProgressRing using hardcoded prompts.
+
+Wire real prompt fetch & TTS.
+
+Integrate recorder, STT, scoring, FeedbackOverlay.
+
+Add Firestore writes for utterances, then aggregate session summary.
+
+Incorporate offline cache & syncPendingUtterances.
+
+Final E2E Playwright run; optimize bundle (code‑split charts).
+
 
 **Dashboard**
 Loads last 30 `sessions`, charts accuracy & latency, lists “Words to revisit” (low‑score labels). Provides “Invite caregiver” which writes an email under `users/{uid}/invites`.
