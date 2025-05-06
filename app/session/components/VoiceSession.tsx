@@ -14,6 +14,9 @@ import {
   serverTimestamp,
   doc,
   setDoc,
+  updateDoc,
+  increment,
+  getDoc,
 } from "firebase/firestore";
 import useSWR from "swr"; // For fetching prompts
 import { useRecorder } from "@/lib/audio"; // Import the recorder hook
@@ -97,6 +100,11 @@ const initialState: State = {
   recordingStartTime: null,
   sessionStartedAt: null, // Initialize as null
 };
+
+// --- Props for VoiceSession component --- //
+interface VoiceSessionProps {
+  focusModePromptId?: string; // Optional ID for focus mode
+}
 
 function sessionReducer(state: State, action: Action): State {
   switch (action.type) {
@@ -193,7 +201,7 @@ const fetcher = (url: string) =>
     return res.json();
   });
 
-export default function VoiceSession() {
+export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
   const [state, dispatch] = useReducer(sessionReducer, initialState);
   const { user } = useAuth();
   const router = useRouter(); // Get router instance
@@ -234,7 +242,7 @@ export default function VoiceSession() {
     error: promptsError,
     isLoading: promptsLoading,
   } = useSWR(
-    "/api/openai/prompts?batch=12", // Example API endpoint
+    !focusModePromptId && user ? "/api/openai/prompts?batch=12" : null, // Only fetch if not in focus mode and user is available
     fetcher,
     {
       shouldRetryOnError: false, // Handle error explicitly
@@ -242,8 +250,10 @@ export default function VoiceSession() {
     },
   );
 
-  // Effect to dispatch actions based on SWR state
+  // Effect to dispatch actions based on SWR state (for non-focus mode)
   useEffect(() => {
+    if (focusModePromptId) return; // Skip if in focus mode, handled by another effect
+
     if (promptsLoading && state.status === "IDLE") {
       dispatch({ type: "FETCH_PROMPTS_START" });
     }
@@ -265,7 +275,40 @@ export default function VoiceSession() {
         });
       }
     }
-  }, [promptsData, promptsError, promptsLoading, state.status]);
+  }, [promptsData, promptsError, promptsLoading, state.status, focusModePromptId]); // Added focusModePromptId
+
+  // --- Effect to Fetch Single Prompt for Focus Mode --- //
+  useEffect(() => {
+    if (focusModePromptId && user && state.status === "IDLE") {
+      dispatch({ type: "FETCH_PROMPTS_START" });
+      console.log(`[VoiceSession] Focus mode: Fetching prompt with ID: ${focusModePromptId}`);
+      
+      const fetchSinglePrompt = async () => {
+        try {
+          const promptDocRef = doc(db, 'users', user.uid, 'generatedPrompts', focusModePromptId);
+          const promptSnap = await getDoc(promptDocRef);
+
+          if (promptSnap.exists()) {
+            const promptData = promptSnap.data();
+            const prompt: Prompt = {
+              id: promptSnap.id,
+              text: promptData.text,
+            };
+            // Dispatch success with an array containing the single prompt
+            dispatch({ type: "FETCH_PROMPTS_SUCCESS", payload: [prompt] });
+          } else {
+            console.error(`[VoiceSession] Focus mode: Prompt ${focusModePromptId} not found.`);
+            dispatch({ type: "FETCH_PROMPTS_ERROR", payload: "Focused prompt not found." });
+          }
+        } catch (error) {
+          console.error("[VoiceSession] Focus mode: Error fetching prompt:", error);
+          const errorMessage = error instanceof Error ? error.message : "Failed to fetch focused prompt.";
+          dispatch({ type: "FETCH_PROMPTS_ERROR", payload: errorMessage });
+        }
+      };
+      fetchSinglePrompt();
+    }
+  }, [focusModePromptId, user, state.status, dispatch]); // Added dispatch
 
   // --- Effect to Create Initial Session Doc --- //
   useEffect(() => {
@@ -503,7 +546,26 @@ export default function VoiceSession() {
 
         console.log("Utterance persisted with ID:", newUtteranceDocRef.id);
 
-        // Dispatch success with the full utterance data including the new ID
+        // --- Update the master prompt in generatedPrompts collection --- //
+        if (user && currentPrompt && currentPrompt.id && typeof score === 'number') {
+          const userPromptRef = doc(db, 'users', user.uid, 'generatedPrompts', currentPrompt.id);
+          try {
+            await updateDoc(userPromptRef, {
+              lastScore: score,
+              lastUsedAt: serverTimestamp(), // Update last used time
+              timesUsed: increment(1),      // Increment times used
+              // Optionally, add to a history array if that feature is desired later
+              // history: arrayUnion({ score, attemptedAt: serverTimestamp(), sessionId: state.sessionId })
+            });
+            console.log(`Master prompt ${currentPrompt.id} updated with score: ${score}`);
+          } catch (updateError) {
+            console.error(`Failed to update master prompt ${currentPrompt.id}:`, updateError);
+            // Non-critical error, don't fail the entire processing for this.
+            // Logging is important here.
+          }
+        }
+        // --- End master prompt update --- //
+
         dispatch({
           type: "PROCESSING_SUCCESS",
           payload: { ...utteranceData, id: newUtteranceDocRef.id },

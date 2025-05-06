@@ -100,6 +100,7 @@ export function OnboardingWizard() {
   // Recording state & Wizard Flow
   const [transcript, setTranscript] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false); // Reinstate submitting flag
+  const [submitMessage, setSubmitMessage] = useState<string>(""); // For more specific feedback during submission
   const [error, setError] = useState<string | null>(null); // Keep this error state for general errors
   const [voiceOnly, setVoiceOnly] = useState(false); // Keep voice-only toggle
 
@@ -287,34 +288,52 @@ export function OnboardingWizard() {
       // Handle final step
       if (step === QUESTIONS.length) {
         try {
-          // Call API to generate prompt docs
-          const response = await fetch(`/api/openai/prompts?uid=${user.uid}`, {
-            method: "GET",
+          setIsSubmitting(true); // Ensure submission state is active
+          setSubmitMessage("Finalizing onboarding and preparing your first set of exercises..."); // Feedback for user
+
+          // Call API to initialize (generate and save) prompt docs
+          // This is a POST request to the new endpoint. It uses the session cookie for auth.
+          const initPromptsResponse = await fetch(`/api/user/initialize-prompts`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json", // Though no body is sent, good practice
+            },
+            credentials: "include", // Important for sending session cookie
           });
 
-          if (!response.ok) {
-            throw new Error("Failed to generate prompts");
+          if (!initPromptsResponse.ok) {
+            const errorData = await initPromptsResponse.json().catch(() => ({ error: "Failed to initialize exercises. Please try again later." }));
+            throw new Error(errorData.error || "Failed to initialize exercises.");
           }
 
-          // Update user's onboarding status
+          const initResult = await initPromptsResponse.json();
+          console.log("Prompt initialization successful:", initResult);
+          setSubmitMessage("Exercises ready! Taking you to your first session..."); // Update feedback
+
+          // Update user's onboarding status in Firestore
           await setDoc(
             doc(getFirestoreInstance(), "users", user.uid),
             {
               onboardComplete: true,
+              promptsInitializedAt: serverTimestamp(), // Optionally track when prompts were set up
             },
             { merge: true },
           );
 
-          // Redirect to session page
-          router.push("/session");
-          return;
+          // Redirect to session page after a brief delay to show the message
+          setTimeout(() => {
+            router.push("/session");
+          }, 1500); // 1.5 seconds delay
+          return; // Return here to prevent resetting state below for next step
+
         } catch (err) {
-          console.error("Error generating prompts:", err);
+          console.error("Error during final onboarding step or prompt initialization:", err);
           setError(
-            err instanceof Error ? err.message : "Failed to generate prompts",
+            err instanceof Error ? err.message : "An unexpected error occurred during final setup.",
           );
-          setIsSubmitting(false);
-          return;
+          setSubmitMessage(""); // Clear specific submit message on error
+          setIsSubmitting(false); // Ensure submitting is false on error
+          return; // Stop further processing
         }
       }
 
@@ -457,9 +476,9 @@ export function OnboardingWizard() {
             className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md shadow-md transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
             {isSubmitting
-              ? "Saving..."
+              ? submitMessage || "Saving..." // Show specific message or generic "Saving..."
               : step === QUESTIONS.length
-                ? "Finish Onboarding"
+                ? "Finish Onboarding & Start First Session"
                 : "Looks Good, Next Step"}
           </button>
         </div>

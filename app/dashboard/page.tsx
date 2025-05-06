@@ -59,57 +59,43 @@ const fetchRecentSessions = async (uid: string | null): Promise<Session[]> => {
   }).filter(session => session.date instanceof Date); // Ensure date conversion worked
 };
 
-const fetchLowScoreUtterances = async (uid: string | null): Promise<Utterance[]> => {
+// --- NEW FETCHER for Prompts to Revisit from the generatedPrompts collection ---
+interface RevisitPrompt {
+  id: string;       // Firestore document ID of the prompt in generatedPrompts
+  text: string;     // The prompt text
+  lastScore: number; // The last score achieved on this prompt
+  lastUsedAt: Date | null; // When it was last used
+}
+
+const fetchPromptsToRevisit = async (uid: string | null): Promise<RevisitPrompt[]> => {
   if (!uid) return [];
-  console.log('Fetching low score utterances for UID (multi-query strategy):', uid);
+  console.log('[Dashboard] Fetching prompts to revisit for UID:', uid);
 
-  // 1. Get recent session IDs
-  const sessionsCollection = collection(db, 'sessions');
-  const sessionsQuery = query(sessionsCollection,
-                            where('ownerUid', '==', uid),
-                            orderBy('startedAt', 'desc'), // Use original Firestore field name 'startedAt'
-                            limit(30));
-  const sessionsSnapshot = await getDocs(sessionsQuery);
-  const sessionIds = sessionsSnapshot.docs.map(doc => doc.id);
+  const promptsToRevisitRef = collection(db, 'users', uid, 'generatedPrompts');
+  const q = query(promptsToRevisitRef,
+                  where('timesUsed', '>', 0),      // Only prompts that have been attempted
+                  where('lastScore', '<', 0.6),    // Filter by last score being low
+                  orderBy('lastScore', 'asc'),     // Show worst scores first
+                  orderBy('lastUsedAt', 'desc'),  // Among those, show most recently attempted
+                  limit(10)                     // Limit to a manageable number, e.g., 10
+                 );
 
-  if (sessionIds.length === 0) {
-    console.log('No recent sessions found to fetch utterances from.');
-    return [];
-  }
-
-  // 2. Query utterances subcollection for each recent session
-  const allLowScoreUtterances: Utterance[] = [];
-  const queryPromises = sessionIds.map(sessionId => {
-    const utterancesCol = collection(db, 'sessions', sessionId, 'utterances');
-    const utterancesQuery = query(utterancesCol,
-                                  where('score', '<', 0.6) // Filter by score
-                                  );
-    return getDocs(utterancesQuery).then(snapshot => {
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        // Ensure score exists and is a number before adding
-        if (typeof data.score === 'number') {
-             allLowScoreUtterances.push({
-                id: doc.id,
-                prompt: data.prompt ?? '',
-                score: data.score,
-             });
-        }
-      });
-    }).catch(err => {
-        console.error(`Error fetching utterances for session ${sessionId}:`, err);
+  try {
+    const snapshot = await getDocs(q);
+    console.log(`[Dashboard] Found ${snapshot.docs.length} prompts to revisit.`);
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        text: data.text ?? '',
+        lastScore: data.lastScore ?? 0, // Default to 0 if somehow null
+        lastUsedAt: (data.lastUsedAt as Timestamp)?.toDate() || null,
+      };
     });
-  });
-
-  // Wait for all subcollection queries to complete
-  await Promise.all(queryPromises);
-
-  // 3. Sort and limit the combined results client-side
-  allLowScoreUtterances.sort((a, b) => a.score - b.score); // Sort by score ascending
-  const limitedUtterances = allLowScoreUtterances.slice(0, 50); // Limit to 50
-
-  console.log(`Found ${limitedUtterances.length} low score utterances across ${sessionIds.length} sessions.`);
-  return limitedUtterances;
+  } catch (error) {
+    console.error('[Dashboard] Error fetching prompts to revisit:', error);
+    return []; // Return empty array on error
+  }
 };
 
 const fetchInvites = async (uid: string | null): Promise<Invite[]> => {
@@ -157,7 +143,7 @@ export default function DashboardPage() {
 
   // Fetch Data using SWR
   const { data: sessions, error: sessionsError } = useSWR(uid ? ['sessions', uid] : null, () => fetchRecentSessions(uid));
-  const { data: lowScoreUtterances, error: utterancesError } = useSWR(uid ? ['lowScoreUtterances', uid] : null, () => fetchLowScoreUtterances(uid));
+  const { data: promptsToRevisit, error: promptsToRevisitError } = useSWR(uid ? ['promptsToRevisit', uid] : null, () => fetchPromptsToRevisit(uid));
   const { data: invites, error: invitesError } = useSWR(uid ? ['invites', uid] : null, () => fetchInvites(uid));
 
   // --- Derived Data Calculation ---
@@ -179,12 +165,10 @@ export default function DashboardPage() {
   }, [sessions]);
 
   const revisitWords = useMemo(() => {
-      if (!lowScoreUtterances) return [];
-      // Deduplicate prompts
-      const uniquePrompts = [...new Set(lowScoreUtterances.map(utt => utt.prompt))];
-      // TODO: Implement sorting based on lowest average score if needed
-      return uniquePrompts;
-  }, [lowScoreUtterances]);
+      if (!promptsToRevisit) return [];
+      // promptsToRevisit is already RevisitPrompt[] which matches what WordRevisitList now expects
+      return promptsToRevisit;
+  }, [promptsToRevisit]);
 
   // --- Render Logic ---
   if (authLoading) {
@@ -196,13 +180,13 @@ export default function DashboardPage() {
   }
 
   // Consolidated Error Handling
-  const hasError = sessionsError || utterancesError || invitesError;
+  const hasError = sessionsError || promptsToRevisitError || invitesError;
   if (hasError) {
-      console.error("Dashboard Fetch Error:", { sessionsError, utterancesError, invitesError });
+      console.error("Dashboard Fetch Error:", { sessionsError, promptsToRevisitError, invitesError });
       // Display specific errors if needed, or a general message
       let errorMsg = 'Failed to load some dashboard data. Please try again later.';
       if (sessionsError) errorMsg = `Failed to load sessions: ${sessionsError.message || sessionsError}`;
-      else if (utterancesError) errorMsg = `Failed to load utterance data: ${utterancesError.message || utterancesError}`;
+      else if (promptsToRevisitError) errorMsg = `Failed to load words to revisit: ${promptsToRevisitError.message || promptsToRevisitError}`;
       else if (invitesError) errorMsg = `Failed to load invites: ${invitesError.message || invitesError}`;
 
       return <div className="text-center p-10 text-red-600">{errorMsg}</div>;

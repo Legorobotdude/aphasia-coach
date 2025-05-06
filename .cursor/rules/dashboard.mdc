@@ -1,5 +1,49 @@
 ---
-description:
-globs:
+description: Dashboard
+globs: 
 alwaysApply: false
 ---
+# Dashboard Feature (`/dashboard`)
+
+This rule describes the user progress dashboard feature of the Aphasia Coach app, located under [app/dashboard](mdc:app/dashboard).
+
+## Overview
+
+The dashboard displays the user's progress, including accuracy trends, response latency, daily streaks, and words needing more practice. It also provides a way to invite caregivers.
+
+## Key Components
+
+*   **Entry Point:** [app/dashboard/page.tsx](mdc:app/dashboard/page.tsx)
+    *   Handles authentication checks (`useAuth`).
+    *   Fetches data using `useSWR` for sessions, low-score utterances, and caregiver invites from Firestore.
+    *   Calculates derived metrics (streak, revisit words - *currently placeholders*).
+    *   Renders the dashboard layout and child components (dynamically imported).
+*   **UI Components:** Located in [app/dashboard/components](mdc:app/dashboard/components)
+    *   [AccuracyChart.tsx](mdc:app/dashboard/components/AccuracyChart.tsx): Displays accuracy trend using `react-charts` (line chart).
+    *   [LatencyChart.tsx](mdc:app/dashboard/components/LatencyChart.tsx): Displays average response latency using `react-charts` (bar chart).
+    *   [StreakWidget.tsx](mdc:app/dashboard/components/StreakWidget.tsx): Shows current streak count and a monthly heatmap using `date-fns`.
+    *   [WordRevisitList.tsx](mdc:app/dashboard/components/WordRevisitList.tsx): Lists low-scoring words/prompts with a "Practice" button linking to `/session` in focus mode.
+    *   [SessionTable.tsx](mdc:app/dashboard/components/SessionTable.tsx): Displays recent session details (Date, Accuracy, Latency, Duration).
+    *   [CaregiverInvite.tsx](mdc:app/dashboard/components/CaregiverInvite.tsx): Provides a form to invite caregivers (writes to `users/{uid}/invites` subcollection in Firestore) and lists existing invites.
+
+## Data Flow & Persistence
+
+1.  **Fetching:** `DashboardPage` uses SWR hooks and specific fetcher functions (`fetchRecentSessions`, `fetchLowScoreUtterances`, `fetchInvites`) to query Firestore.
+    *   Sessions are fetched from the top-level `sessions` collection, filtered by `ownerUid`.
+    *   Low-score utterances are fetched using a `collectionGroup` query on `utterances`, filtered by `ownerUid` and `score`.
+    *   Invites are fetched from the `users/{uid}/invites` subcollection.
+2.  **Calculation:** Derived metrics like streak and revisit words are calculated (currently using placeholders) within `DashboardPage` using `useMemo`.
+3.  **Persistence (Invites):** `CaregiverInvite` component handles writing new invite documents to the `users/{uid}/invites` subcollection.
+
+## Firestore Dependencies
+
+*   Relies on data in the `sessions` collection (specifically `ownerUid`, `startedAt`, `accuracy`, `latencyMs`, `durationSec`).
+*   Relies on data in the `utterances` subcollection (specifically `ownerUid`, `prompt`, `score`). Requires a composite index for efficient querying.
+*   Reads/Writes to the `users/{uid}/invites` subcollection.
+
+## Important Considerations
+
+*   **Client-Side Rendering:** Chart components and others are dynamically imported (`next/dynamic`) with `ssr: false` to avoid hydration issues and improve initial load performance.
+*   **Placeholder Logic:** Current implementations for streak calculation and heatmap data generation use placeholder logic.
+*   **Session Summary Data:** The dashboard relies on summary metrics (`accuracy`, `latencyMs`, `durationSec`) being correctly calculated and saved in the `sessions` documents by the `VoiceSession` feature (currently placeholder values).
+*   **Firestore Indexes:** Queries, especially the `collectionGroup` query, likely require composite indexes to be configured in Firestore for optimal performance.

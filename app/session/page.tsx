@@ -3,7 +3,7 @@
 import React from 'react';
 import VoiceSession from './components/VoiceSession';
 import { useAuth } from '@/context/AuthContext'; // Assuming AuthContext provides user info
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 /**
  * Main page component for the voice session.
@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 export default function SessionPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams(); // Get search params
 
   // Redirect to login if not authenticated and not loading
   React.useEffect(() => {
@@ -25,6 +26,16 @@ export default function SessionPage() {
     return <div>Loading...</div>; // Or a proper loading skeleton
   }
 
-  // Render the main session component
-  return <VoiceSession />;
+  // Check for focus mode parameters
+  const mode = searchParams.get('mode');
+  const promptIdFromQuery = searchParams.get('promptId');
+
+  let focusModePromptId: string | undefined = undefined;
+  if (mode === 'focus' && promptIdFromQuery) {
+    focusModePromptId = promptIdFromQuery;
+    console.log(`[SessionPage] Focus mode activated for promptId: ${focusModePromptId}`);
+  }
+
+  // Render the main session component, passing focusModePromptId if set
+  return <VoiceSession focusModePromptId={focusModePromptId} />;
 } 

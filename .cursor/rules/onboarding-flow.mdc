@@ -1,5 +1,39 @@
 ---
-description:
-globs:
+description: Onboarding
+globs: 
 alwaysApply: false
 ---
+# Onboarding Flow
+
+The onboarding process is a 6-step voice wizard that collects personal context from users to generate personalized prompts.
+
+## Key Components
+
+### Main Structure
+- [app/onboarding/page.tsx](mdc:app/onboarding/page.tsx) - Main container for the onboarding wizard
+- [app/onboarding/questions.ts](mdc:app/onboarding/questions.ts) - Configuration for the 6 onboarding questions
+- [app/onboarding/components/Wizard.tsx](mdc:app/onboarding/components/Wizard.tsx) - Core wizard with step navigation
+- [app/onboarding/components/Recorder.tsx](mdc:app/onboarding/components/Recorder.tsx) - Audio recording UI
+
+### Audio Utilities
+- [lib/audio.ts](mdc:lib/audio.ts) - Custom hook for audio recording with iOS Safari compatibility
+
+### API Endpoints
+- [app/api/openai/transcribe/route.ts](mdc:app/api/openai/transcribe/route.ts) - Transcribes audio using Whisper
+- [app/api/openai/prompts/route.ts](mdc:app/api/openai/prompts/route.ts) - Generates personalized prompts
+- [app/api/auth/session/route.ts](mdc:app/api/auth/session/route.ts) - Handles session management
+
+## Onboarding Flow
+
+1. User logs in via [app/page.tsx](mdc:app/page.tsx)
+2. New users are redirected to the onboarding wizard
+3. User progresses through 6 questions, recording voice responses
+4. Audio is sent to OpenAI Whisper for transcription
+5. Transcripts are saved to Firestore and cached in IndexedDB for offline support
+6. After the final step, personalized prompts are generated using OpenAI
+7. User is redirected to the session page for practice
+
+## Offline Support
+The wizard implements offline resilience through IndexedDB:
+- Caches recordings and transcripts locally
+- Syncs with Firestore when back online
