@@ -9,6 +9,11 @@ service cloud.firestore {
       match /invites/{inviteId} {
         allow read, write: if request.auth.uid == userId;
       }
+
+      // Onboarding Answers Subcollection Rules
+      match /onboardingAnswers/{answerId} {
+        allow read, write: if request.auth.uid == userId;
+      }
     }
     
     // Topics collection rules
