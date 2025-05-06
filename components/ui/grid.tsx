@@ -1,6 +1,15 @@
-'use client';
+"use client";
 
-import React, { useId } from 'react';
+import React, { useId } from "react";
+
+// Define the GridPatternProps interface
+interface GridPatternProps extends React.SVGProps<SVGSVGElement> {
+  width: number;
+  height: number;
+  x: string;
+  y: string;
+  squares: number[][];
+}
 
 // Grid Pattern Component
 export const Grid = ({
@@ -44,7 +53,14 @@ export const Grid = ({
   );
 };
 
-export function GridPattern({ width, height, x, y, squares, ...props }: any) {
+export function GridPattern({
+  width,
+  height,
+  x,
+  y,
+  squares,
+  ...props
+}: GridPatternProps) {
   const patternId = useId();
 
   return (
@@ -83,4 +99,4 @@ export function GridPattern({ width, height, x, y, squares, ...props }: any) {
       )}
     </svg>
   );
-} 
+}

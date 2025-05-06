@@ -1,24 +1,30 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { auth, getFirestoreInstance } from '@/lib/firebaseConfig';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { MoveRight, PhoneCall, Brain, MessageSquare, Clock, Award, Star } from "lucide-react";
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { getFirestoreInstance } from "@/lib/firebaseConfig";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import {
+  MoveRight,
+  PhoneCall,
+  Brain,
+  MessageSquare,
+  Clock,
+  Star,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import Image from 'next/image';
-import { cn } from '@/lib/utils';
-import { 
-  Carousel, 
-  CarouselApi, 
-  CarouselContent, 
-  CarouselItem 
-} from '@/components/ui/carousel';
-import { Avatar, AvatarImage } from '@/components/ui/avatar';
-import { Grid } from '@/components/ui/grid';
+import { cn } from "@/lib/utils";
+import {
+  Carousel,
+  CarouselApi,
+  CarouselContent,
+  CarouselItem,
+} from "@/components/ui/carousel";
+import { Avatar, AvatarImage } from "@/components/ui/avatar";
+import { Grid } from "@/components/ui/grid";
 
 export default function Home() {
   const router = useRouter();
@@ -31,17 +37,19 @@ export default function Home() {
 
     try {
       // Ensure we're on the client side
-      if (typeof window === 'undefined') {
-        throw new Error('Authentication can only be performed on the client side');
+      if (typeof window === "undefined") {
+        throw new Error(
+          "Authentication can only be performed on the client side",
+        );
       }
 
       // Initialize Google Auth Provider
       const provider = new GoogleAuthProvider();
-      
+
       // Get auth instance
       const auth = getAuth();
       if (!auth) {
-        throw new Error('Firebase Auth is not initialized');
+        throw new Error("Firebase Auth is not initialized");
       }
 
       // Sign in with Google popup
@@ -49,32 +57,32 @@ export default function Home() {
       const user = result.user;
 
       if (!user) {
-        throw new Error('Failed to authenticate');
+        throw new Error("Failed to authenticate");
       }
 
       // Get user's ID token
       const idToken = await user.getIdToken();
 
       // Send token to server to create session cookie
-      const response = await fetch('/api/auth/session', {
-        method: 'POST',
+      const response = await fetch("/api/auth/session", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ idToken }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create session');
+        throw new Error("Failed to create session");
       }
 
       // Check if user has completed onboarding
       const userRef = doc(getFirestoreInstance(), "users", user.uid);
       const userSnap = await getDoc(userRef);
-      
+
       if (userSnap.exists() && userSnap.data().onboardComplete) {
         // Redirect to session page if onboarding is complete
-        router.push('/session');
+        router.push("/session");
       } else {
         // Create/update user document
         await setDoc(
@@ -83,17 +91,17 @@ export default function Home() {
             fullName: user.displayName,
             email: user.email,
             lastLogin: new Date(),
-            onboardComplete: false
+            onboardComplete: false,
           },
-          { merge: true }
+          { merge: true },
         );
-        
+
         // Redirect to onboarding flow
-        router.push('/onboarding');
+        router.push("/onboarding");
       }
     } catch (err) {
-      console.error('Login error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to log in');
+      console.error("Login error:", err);
+      setError(err instanceof Error ? err.message : "Failed to log in");
     } finally {
       setIsLoading(false);
     }
@@ -109,7 +117,7 @@ export default function Home() {
         avatarPath="/images/testimonials/"
       />
       */}
-      <Cta 
+      <Cta
         heading="Ready to Start Your Recovery Journey?"
         description="Join thousands of users who have improved their communication skills with Aphasia Coach."
         buttons={{
@@ -127,11 +135,12 @@ export default function Home() {
       <section id="login" className="py-24 bg-background">
         <div className="max-w-md mx-auto p-8 bg-card rounded-xl shadow-lg">
           <h2 className="text-2xl font-semibold mb-6 text-center">Sign In</h2>
-          
+
           <p className="mb-8 text-center text-muted-foreground">
-            Sign in to start your personalized therapy sessions or continue your progress
+            Sign in to start your personalized therapy sessions or continue your
+            progress
           </p>
-          
+
           <Button
             onClick={handleLogin}
             disabled={isLoading}
@@ -147,7 +156,7 @@ export default function Home() {
               </>
             )}
           </Button>
-          
+
           {error && (
             <div className="mt-4 p-3 bg-destructive/10 text-destructive rounded-md">
               {error}
@@ -155,11 +164,14 @@ export default function Home() {
           )}
         </div>
       </section>
-      
+
       <footer className="w-full py-12 bg-muted text-center text-sm text-muted-foreground">
         <div className="container mx-auto">
           <p>Aphasia Coach &copy; {new Date().getFullYear()}</p>
-          <p className="mt-2">A revolutionary app designed to help individuals with aphasia improve their communication skills</p>
+          <p className="mt-2">
+            A revolutionary app designed to help individuals with aphasia
+            improve their communication skills
+          </p>
         </div>
       </footer>
     </main>
@@ -169,7 +181,7 @@ export default function Home() {
 // Hero Section
 function Hero() {
   return (
-    <div className="w-full py-24 lg:py-40">
+    <div className="w-full py-16 lg:py-32">
       <div className="container mx-auto">
         <div className="grid grid-cols-1 gap-10 items-center lg:grid-cols-2">
           <div className="flex gap-5 flex-col">
@@ -181,7 +193,8 @@ function Hero() {
                 Aphasia Coach
               </h1>
               <p className="text-xl leading-relaxed tracking-tight text-muted-foreground max-w-lg text-left">
-                Improve your communication skills through personalized speech exercises and progress tracking.
+                Improve your communication skills through personalized speech
+                exercises and progress tracking.
               </p>
             </div>
             <div className="flex flex-row gap-4">
@@ -214,7 +227,8 @@ function FeaturesSection() {
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-5xl font-bold mb-4">Features</h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Designed to support your recovery with personalized exercises and progress tracking.
+            Designed to support your recovery with personalized exercises and
+            progress tracking.
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-10 md:gap-8 max-w-5xl mx-auto">
@@ -224,9 +238,7 @@ function FeaturesSection() {
               className="relative bg-gradient-to-b from-zinc-100/30 to-zinc-300/30 p-8 rounded-3xl overflow-hidden"
             >
               <Grid size={20} />
-              <div className="mb-4">
-                {feature.icon}
-              </div>
+              <div className="mb-4">{feature.icon}</div>
               <p className="text-base font-bold text-foreground relative z-20">
                 {feature.title}
               </p>
@@ -286,101 +298,114 @@ interface TestimonialSectionProps extends React.HTMLAttributes<HTMLDivElement> {
   avatarPath?: string;
 }
 
-const TestimonialSection = React.forwardRef<HTMLDivElement, TestimonialSectionProps>(
-  ({ className, testimonials, avatarPath = "", ...props }, ref) => {
-    const [api, setApi] = React.useState<CarouselApi>();
-    const [current, setCurrent] = React.useState(0);
+const TestimonialSection = React.forwardRef<
+  HTMLDivElement,
+  TestimonialSectionProps
+>(({ className, testimonials, avatarPath = "", ...props }, ref) => {
+  const [api, setApi] = React.useState<CarouselApi>();
+  const [current, setCurrent] = React.useState(0);
 
-    React.useEffect(() => {
-      if (!api) return;
-      api.on("select", () => {
-        setCurrent(api.selectedScrollSnap());
-      });
-    }, [api]);
+  React.useEffect(() => {
+    if (!api) return;
+    api.on("select", () => {
+      setCurrent(api.selectedScrollSnap());
+    });
+  }, [api]);
 
-    return (
-      <div ref={ref} className={cn("py-16 bg-background", className)} {...props}>
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold tracking-tight mb-2">Patient Success Stories</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Real stories from real people who have improved their communication skills with Aphasia Coach.
-            </p>
-          </div>
+  return (
+    <div ref={ref} className={cn("py-16 bg-background", className)} {...props}>
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold tracking-tight mb-2">
+            Patient Success Stories
+          </h2>
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            Real stories from real people who have improved their communication
+            skills with Aphasia Coach.
+          </p>
+        </div>
 
-          <Carousel
-            setApi={setApi}
-            className="max-w-screen-xl mx-auto"
-          >
-            <CarouselContent>
-              {testimonials.map((testimonial) => (
-                <CarouselItem
-                  key={testimonial.name}
-                  className="md:basis-1/2 lg:basis-1/3 p-2"
-                >
-                  <Card className="h-full flex flex-col p-6 border bg-card">
-                    <div className="flex items-center mb-4">
-                      <Avatar className="h-12 w-12 mr-4">
-                        <AvatarImage 
-                          src={`${avatarPath}${testimonial.avatar}`} 
-                          alt={testimonial.name} 
-                        />
-                      </Avatar>
-                      <div>
-                        <h4 className="font-medium">{testimonial.name}</h4>
-                        <p className="text-sm text-muted-foreground">{testimonial.role}</p>
-                      </div>
-                      {testimonial.rating && (
-                        <div className="ml-auto flex">
-                          {Array.from({ length: testimonial.rating }).map((_, i) => (
-                            <Star key={i} className="h-4 w-4 text-amber-400 fill-amber-400" />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-start mb-4">
-                      <MessageSquare className="h-5 w-5 text-primary mr-2 mt-1 flex-shrink-0" />
-                      <p className="text-sm text-foreground italic">"{testimonial.review}"</p>
-                    </div>
-                    
-                    <div className="flex items-start mt-auto">
-                      <Brain className="h-5 w-5 text-primary mr-2 mt-1 flex-shrink-0" />
+        <Carousel setApi={setApi} className="max-w-screen-xl mx-auto">
+          <CarouselContent>
+            {testimonials.map((testimonial) => (
+              <CarouselItem
+                key={testimonial.name}
+                className="md:basis-1/2 lg:basis-1/3 p-2"
+              >
+                <Card className="h-full flex flex-col p-6 border bg-card">
+                  <div className="flex items-center mb-4">
+                    <Avatar className="h-12 w-12 mr-4">
+                      <AvatarImage
+                        src={`${avatarPath}${testimonial.avatar}`}
+                        alt={testimonial.name}
+                      />
+                    </Avatar>
+                    <div>
+                      <h4 className="font-medium">{testimonial.name}</h4>
                       <p className="text-sm text-muted-foreground">
-                        <span className="font-medium text-foreground">Improvement: </span>
-                        {testimonial.improvement}
+                        {testimonial.role}
                       </p>
                     </div>
-                  </Card>
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-          </Carousel>
+                    {testimonial.rating && (
+                      <div className="ml-auto flex">
+                        {Array.from({ length: testimonial.rating }).map(
+                          (_, i) => (
+                            <Star
+                              key={i}
+                              className="h-4 w-4 text-amber-400 fill-amber-400"
+                            />
+                          ),
+                        )}
+                      </div>
+                    )}
+                  </div>
 
-          <div className="mt-6 text-center">
-            <div className="flex items-center justify-center gap-2">
-              {testimonials.map((_, index) => (
-                <button
-                  key={index}
-                  className={cn(
-                    "h-1.5 w-1.5 rounded-full transition-all",
-                    index === current ? "bg-primary w-3" : "bg-primary/35"
-                  )}
-                  onClick={() => api?.scrollTo(index)}
-                  aria-label={`Go to slide ${index + 1}`}
-                />
-              ))}
-            </div>
+                  <div className="flex items-start mb-4">
+                    <MessageSquare className="h-5 w-5 text-primary mr-2 mt-1 flex-shrink-0" />
+                    <p className="text-sm text-foreground italic">
+                      &ldquo;{testimonial.review}&rdquo;
+                    </p>
+                  </div>
+
+                  <div className="flex items-start mt-auto">
+                    <Brain className="h-5 w-5 text-primary mr-2 mt-1 flex-shrink-0" />
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-medium text-foreground">
+                        Improvement:{" "}
+                      </span>
+                      {testimonial.improvement}
+                    </p>
+                  </div>
+                </Card>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+        </Carousel>
+
+        <div className="mt-6 text-center">
+          <div className="flex items-center justify-center gap-2">
+            {testimonials.map((_, index) => (
+              <button
+                key={index}
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full transition-all",
+                  index === current ? "bg-primary w-3" : "bg-primary/35",
+                )}
+                onClick={() => api?.scrollTo(index)}
+                aria-label={`Go to slide ${index + 1}`}
+              />
+            ))}
           </div>
         </div>
       </div>
-    );
-  }
-);
+    </div>
+  );
+});
 
 TestimonialSection.displayName = "TestimonialSection";
 
-// Testimonial data
+// Testimonial data - commented out as it's not being used
+/* 
 const testimonials = [
   {
     name: "Robert Johnson",
@@ -423,6 +448,7 @@ const testimonials = [
     rating: 5
   }
 ];
+*/
 
 // Call to Action Section
 interface CtaProps {
@@ -484,11 +510,11 @@ const Cta = ({
 
 // Google Icon component for the sign-in button
 const GoogleIcon = ({ className }: { className?: string }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 24 24"
-    className={className} 
-    width="24" 
+    className={className}
+    width="24"
     height="24"
   >
     <path
