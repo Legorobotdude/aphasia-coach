@@ -529,10 +529,10 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
           );
         }
         const { text: transcript } = await transcribeRes.json();
-        console.log("Transcription successful:", transcript);
+        console.log("[VoiceSession] Transcription successful:", transcript);
 
         // 2. Score
-        console.log("Scoring transcription...");
+        console.log("[VoiceSession] Scoring transcription...");
         const scoreRes = await fetch("/api/openai/score", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -549,8 +549,8 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
             `Scoring failed: ${scoreRes.status} ${scoreRes.statusText} - ${errorBody.error || "Unknown error"}`,
           );
         }
-        const { score, feedback } = await scoreRes.json(); // Assuming feedback is returned
-        console.log("Scoring successful:", { score, feedback });
+        const { score, feedback } = await scoreRes.json(); 
+        console.log("[VoiceSession] Scoring API returned:", { score, feedback }); // LOG SCORE AND FEEDBACK
 
         // 3. Persist Utterance
         console.log("Persisting utterance...");
@@ -583,22 +583,25 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
         console.log("Utterance persisted with ID:", newUtteranceDocRef.id);
 
         // --- Update the master prompt in generatedPrompts collection --- //
-        if (user && currentPrompt && currentPrompt.id && typeof score === 'number') {
+        const canUpdateMasterPrompt = user && currentPrompt && currentPrompt.id && typeof score === 'number';
+        console.log("[VoiceSession] Condition to update master prompt:", canUpdateMasterPrompt, { userId: user?.uid, promptId: currentPrompt?.id, scoreValue: score, typeOfScore: typeof score }); // LOG CONDITION CHECK
+
+        if (canUpdateMasterPrompt) {
           const userPromptRef = doc(db, 'users', user.uid, 'generatedPrompts', currentPrompt.id);
+          const updatePayload = {
+            lastScore: score,
+            lastUsedAt: serverTimestamp(),
+            timesUsed: increment(1),
+          };
+          console.log(`[VoiceSession] Attempting to update master prompt ${currentPrompt.id} with payload:`, updatePayload); // LOG PAYLOAD
           try {
-            await updateDoc(userPromptRef, {
-              lastScore: score,
-              lastUsedAt: serverTimestamp(), // Update last used time
-              timesUsed: increment(1),      // Increment times used
-              // Optionally, add to a history array if that feature is desired later
-              // history: arrayUnion({ score, attemptedAt: serverTimestamp(), sessionId: state.sessionId })
-            });
-            console.log(`Master prompt ${currentPrompt.id} updated with score: ${score}`);
+            await updateDoc(userPromptRef, updatePayload);
+            console.log(`[VoiceSession] Master prompt ${currentPrompt.id} updated successfully with score: ${score}`);
           } catch (updateError) {
-            console.error(`Failed to update master prompt ${currentPrompt.id}:`, updateError);
-            // Non-critical error, don't fail the entire processing for this.
-            // Logging is important here.
+            console.error(`[VoiceSession] CRITICAL: Failed to update master prompt ${currentPrompt.id}:`, updateError); // LOG UPDATE ERROR
           }
+        } else {
+          console.warn("[VoiceSession] SKIPPED updating master prompt due to unmet conditions.");
         }
         // --- End master prompt update --- //
 
@@ -607,7 +610,7 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
           payload: { ...utteranceData, id: newUtteranceDocRef.id },
         });
       } catch (error: unknown) {
-        console.error("Processing error:", error);
+        console.error("[VoiceSession] Processing error in handleProcessRecording:", error); // Enhanced logging
         const errorMessage =
           error instanceof Error
             ? error.message

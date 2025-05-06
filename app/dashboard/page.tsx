@@ -68,33 +68,39 @@ interface RevisitPrompt {
 }
 
 const fetchPromptsToRevisit = async (uid: string | null): Promise<RevisitPrompt[]> => {
-  if (!uid) return [];
-  console.log('[Dashboard] Fetching prompts to revisit for UID:', uid);
+  if (!uid) {
+    console.log('[Dashboard] fetchPromptsToRevisit: No UID provided.');
+    return [];
+  }
+  console.log('[Dashboard] fetchPromptsToRevisit: Fetching for UID:', uid);
 
   const promptsToRevisitRef = collection(db, 'users', uid, 'generatedPrompts');
   const q = query(promptsToRevisitRef,
-                  where('timesUsed', '>', 0),      // Only prompts that have been attempted
-                  where('lastScore', '<', 0.6),    // Filter by last score being low
-                  orderBy('lastScore', 'asc'),     // Show worst scores first
-                  orderBy('lastUsedAt', 'desc'),  // Among those, show most recently attempted
-                  limit(10)                     // Limit to a manageable number, e.g., 10
+                  where('timesUsed', '>', 0),
+                  where('lastScore', '<', 0.6),
+                  orderBy('lastScore', 'asc'),
+                  orderBy('lastUsedAt', 'desc'),
+                  limit(10)
                  );
 
   try {
     const snapshot = await getDocs(q);
-    console.log(`[Dashboard] Found ${snapshot.docs.length} prompts to revisit.`);
+    console.log(`[Dashboard] fetchPromptsToRevisit: Found ${snapshot.docs.length} prompts to revisit for UID ${uid}.`);
+    if (snapshot.docs.length > 0) {
+        console.log('[Dashboard] fetchPromptsToRevisit: First few prompts:', snapshot.docs.slice(0,3).map(d => ({id: d.id, ...d.data()})));
+    }
     return snapshot.docs.map(doc => {
       const data = doc.data();
       return {
         id: doc.id,
         text: data.text ?? '',
-        lastScore: data.lastScore ?? 0, // Default to 0 if somehow null
+        lastScore: data.lastScore ?? 0,
         lastUsedAt: (data.lastUsedAt as Timestamp)?.toDate() || null,
       };
     });
   } catch (error) {
-    console.error('[Dashboard] Error fetching prompts to revisit:', error);
-    return []; // Return empty array on error
+    console.error(`[Dashboard] fetchPromptsToRevisit: Error fetching prompts for UID ${uid}:`, error);
+    return []; 
   }
 };
 

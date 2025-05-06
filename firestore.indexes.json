@@ -1,6 +1,74 @@
 {
   "indexes": [
     {
+      "collectionGroup": "generatedPrompts",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "lastScore",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastUsedAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timesUsed",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "generatedPrompts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "lastScore",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastUsedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "timesUsed",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "generatedPrompts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "timesUsed",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastScore",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastUsedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "generatedPrompts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "timesUsed",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastUsedAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "sessions",
       "queryScope": "COLLECTION",
       "fields": [
@@ -24,38 +92,6 @@
         },
         {
           "fieldPath": "score",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionId": "generatedPrompts",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "timesUsed",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "lastScore",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "lastUsedAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionId": "generatedPrompts",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "timesUsed",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "lastUsedAt",
           "order": "ASCENDING"
         }
       ]
