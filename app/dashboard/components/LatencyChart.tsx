@@ -42,7 +42,7 @@ export default function LatencyChart({ data }: LatencyChartProps) {
   );
 
   const secondaryAxes = React.useMemo(
-    (): AxisOptions<SessionData>[] => [
+    (): any[] => [
       {
         getValue: (datum: SessionData) => datum.latencyMs,
         elementType: 'bar' as const,

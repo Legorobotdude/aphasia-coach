@@ -6,7 +6,7 @@ import {
   serverTimestamp,
   type DocumentReference,
 } from 'firebase/firestore';
-import { firestore } from '../firebaseConfig';
+import { getFirestoreInstance } from '../firebaseConfig';
 import type { CollectionPath, FirestoreSchema } from '../types/firestore';
 
 /**
@@ -18,7 +18,8 @@ export async function setDocument<T extends CollectionPath>(
   data: Partial<FirestoreSchema[T]>,
   merge = true
 ) {
-  const ref = doc(firestore!, collection, id);
+  const firestore = getFirestoreInstance();
+  const ref = doc(firestore, collection, id);
   const timestamp = serverTimestamp();
   const docData = {
     ...data,
@@ -38,7 +39,7 @@ export async function updateDocument<T extends CollectionPath>(
   id: string,
   data: Partial<FirestoreSchema[T]>
 ) {
-  const ref = doc(firestore!, collection, id);
+  const ref = doc(getFirestoreInstance(), collection, id);
   const timestamp = serverTimestamp();
   await updateDoc(ref, {
     ...data,
@@ -54,7 +55,7 @@ export async function getDocument<T extends CollectionPath>(
   collection: T,
   id: string
 ) {
-  const ref = doc(firestore!, collection, id) as DocumentReference<FirestoreSchema[T]>;
+  const ref = doc(getFirestoreInstance(), collection, id) as DocumentReference<FirestoreSchema[T]>;
   const snapshot = await getDoc(ref);
   return snapshot.exists() ? snapshot.data() : null;
 }
@@ -66,5 +67,5 @@ export function getDocumentRef<T extends CollectionPath>(
   collection: T,
   id: string
 ): DocumentReference<FirestoreSchema[T]> {
-  return doc(firestore!, collection, id) as DocumentReference<FirestoreSchema[T]>;
+  return doc(getFirestoreInstance(), collection, id) as DocumentReference<FirestoreSchema[T]>;
 } 
