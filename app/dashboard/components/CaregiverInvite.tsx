@@ -70,7 +70,7 @@ export default function CaregiverInvite({ invites }: CaregiverInviteProps) {
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Caregiver's Email
+              Caregiver&apos;s Email
             </label>
             <input
               type="email"

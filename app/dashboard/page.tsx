@@ -78,7 +78,7 @@ const fetchLowScoreUtterances = async (uid: string | null): Promise<Utterance[]>
   }
 
   // 2. Query utterances subcollection for each recent session
-  let allLowScoreUtterances: Utterance[] = [];
+  const allLowScoreUtterances: Utterance[] = [];
   const queryPromises = sessionIds.map(sessionId => {
     const utterancesCol = collection(db, 'sessions', sessionId, 'utterances');
     const utterancesQuery = query(utterancesCol,

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Mic, Square } from 'lucide-react'; // Assuming lucide-react is installed
+import { Square } from 'lucide-react'; // Assuming lucide-react is installed
 import LatencyTicker from './LatencyTicker'; // Import the ticker
 
 interface RecorderControlsProps {

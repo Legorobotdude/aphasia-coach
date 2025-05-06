@@ -1,5 +1,5 @@
 import React from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday } from 'date-fns';
 
 // TODO: Fetch real data (streak count, session completion days) in parent component
 interface StreakWidgetProps {

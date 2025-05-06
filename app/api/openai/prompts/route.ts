@@ -36,7 +36,6 @@ export async function GET(req: NextRequest) {
     // Get the requested UID from query parameter
     const url = new URL(req.url);
     const requestedUid = url.searchParams.get('uid');
-    const batchSize = Number(url.searchParams.get('batch') || '10');
 
     // Only allow generating prompts for the authenticated user
     if (requestedUid && requestedUid !== userId) {
@@ -49,12 +48,9 @@ export async function GET(req: NextRequest) {
     // Generate prompts using OpenAI
     const prompts = await generatePromptDocs(userId);
 
-    // TODO: Handle generating prompts if none exist or are stale
-    // This might involve checking Firestore first, then calling generatePromptDocs
-
     return NextResponse.json({ prompts });
-  } catch (_error) {
-    console.error('[API /prompts] Error:', _error);
+  } catch (error) {
+    console.error('[API /prompts] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
