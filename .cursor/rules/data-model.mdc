@@ -1,0 +1,76 @@
+---
+description: Firestore Data Model
+globs: 
+alwaysApply: false
+---
+# Firestore Data Model
+
+This document outlines the Firestore collections and their relationships for the Aphasia Coach application.
+
+## Collections
+
+### Users
+- Path: `users/{uid}`
+- Core user data:
+  ```typescript
+  {
+    fullName: string;
+    timezone: string;
+    onboardComplete: boolean;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+  }
+  ```
+
+### Topics
+- Path: `topics/{uid}/{topicId}`
+- User's interests and personal contexts:
+  ```typescript
+  {
+    label: string;         // e.g. "aviation"
+    embedding: number[];   // 768-float array
+    weight: number;        // relevance score
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+  }
+  ```
+
+### Sessions
+- Path: `sessions/{uid}/{sessionId}`
+- Practice session metrics:
+  ```typescript
+  {
+    startedAt: Timestamp;
+    durationSec: number;
+    accuracy: number;      // average score 0-1
+    latencyMs: number;     // average response time
+    createdAt: Timestamp;
+  }
+  ```
+
+### Utterances
+- Path: `utterances/{sessionId}/{uttId}`
+- Individual voice responses:
+  ```typescript
+  {
+    prompt: string;        // the question asked
+    response: string;      // transcribed answer
+    score: number;         // 0-1 quality score
+    latencyMs: number;     // response time
+    createdAt: Timestamp;
+  }
+  ```
+
+## Relationships
+
+- Each user can have many topics (1:N)
+- Each user can have many sessions (1:N)
+- Each session can have many utterances (1:N)
+- Utterances reference their parent session via `{sessionId}` in path
+
+## Security Rules
+
+Access control is implemented via Firestore Security Rules:
+- Users can only access their own data
+- To access an utterance, a user must own the parent session
+- See [firestore.rules](mdc:firestore.rules) for implementation details

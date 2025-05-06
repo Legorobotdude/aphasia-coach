@@ -1,5 +1,45 @@
 ---
-description:
-globs:
-alwaysApply: false
+description: 
+globs: 
+alwaysApply: true
 ---
+# Aphasia Coach Project Structure
+
+This Next.js PWA project uses TypeScript, Tailwind CSS, and follows the App Router pattern.
+
+## Core Technologies
+- Next.js 15.3.1 with App Router
+- TypeScript
+- Tailwind CSS
+- PWA support via next-pwa
+- ESLint + Prettier for code quality
+
+## Project Structure
+
+### App Directory
+The main application code lives in the `app` directory:
+- [app/(auth)/login](mdc:app/(auth)/login) - Firebase Auth UI
+- [app/onboarding](mdc:app/onboarding) - 6-step voice wizard
+- [app/session](mdc:app/session) - Main voice session page
+- [app/dashboard](mdc:app/dashboard) - Progress tracking
+
+### Library Code
+Shared utilities and types in [lib](mdc:lib):
+- [lib/firebaseConfig.ts](mdc:lib/firebaseConfig.ts) - Firebase client configuration
+- [lib/types/firestore.ts](mdc:lib/types/firestore.ts) - Firestore type definitions
+- [lib/utils/firestore.ts](mdc:lib/utils/firestore.ts) - Firestore utility functions
+
+### Configuration Files
+- [next.config.js](mdc:next.config.js) - Next.js and PWA configuration
+- [firestore.rules](mdc:firestore.rules) - Firestore security rules
+- [.env.local](mdc:.env.local) - Environment variables (not in repo)
+
+### PWA Assets
+- [public/manifest.json](mdc:public/manifest.json) - PWA manifest
+- [public/icon-192x192.png](mdc:public/icon-192x192.png) - Small PWA icon
+- [public/icon-512x512.png](mdc:public/icon-512x512.png) - Large PWA icon
+
+### Development Tools
+- Husky for git hooks
+- lint-staged for pre-commit linting
+- Prettier for code formatting

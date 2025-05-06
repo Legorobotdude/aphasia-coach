@@ -1,5 +1,59 @@
 ---
-description:
-globs:
+description: Firebase setup
+globs: 
 alwaysApply: false
 ---
+# Firebase and Firestore Configuration
+
+## Firebase Setup
+The project uses Firebase for authentication and Firestore for data storage. Configuration is split between client and server:
+
+### Client-Side Firebase
+- [lib/firebaseConfig.ts](mdc:lib/firebaseConfig.ts) initializes Firebase client SDK
+- Supports Email/Password and Google authentication
+- Lazy initialization to prevent SSR issues
+
+### Environment Variables
+Required in [.env.local](mdc:.env.local):
+```
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+```
+
+## Firestore Data Model
+
+### Collections Structure
+Defined in [lib/types/firestore.ts](mdc:lib/types/firestore.ts):
+
+1. `users/{uid}`
+   - User profile and settings
+   - Contains: fullName, timezone, onboardComplete
+
+2. `topics/{uid}/{topicId}`
+   - Personal topics for prompts
+   - Contains: label, embedding, weight
+
+3. `sessions/{uid}/{sessionId}`
+   - Voice practice sessions
+   - Contains: startedAt, durationSec, accuracy, latencyMs
+
+4. `utterances/{sessionId}/{uttId}`
+   - Individual voice responses
+   - Contains: prompt, response, score, latencyMs
+
+### Security Rules
+Defined in [firestore.rules](mdc:firestore.rules):
+- Users can only access their own documents
+- Session ownership verified for utterance access
+- No public access allowed
+
+### Utility Functions
+[lib/utils/firestore.ts](mdc:lib/utils/firestore.ts) provides type-safe helpers:
+- `setDocument()` - Create/update with timestamps
+- `updateDocument()` - Partial updates
+- `getDocument()` - Type-safe reads
+- `getDocumentRef()` - Type-safe references

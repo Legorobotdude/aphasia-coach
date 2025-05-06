@@ -1,0 +1,43 @@
+---
+description: shared libraries
+globs: 
+alwaysApply: false
+---
+# Shared Libraries
+
+This document outlines the shared library utilities that provide core functionality across the Aphasia Coach application.
+
+## Firebase Configuration
+
+- [lib/firebaseConfig.ts](mdc:lib/firebaseConfig.ts) - Client-side Firebase initialization for Auth and Firestore.
+- [lib/firebaseAdmin.ts](mdc:lib/firebaseAdmin.ts) - Server-side Admin SDK for secure Firebase operations.
+
+## OpenAI Integration
+
+- [lib/openai.ts](mdc:lib/openai.ts) - Server-only wrapper for OpenAI services:
+  - `transcribeAudio()` - Transcribes voice recordings via Whisper API
+  - `generatePromptDocs()` - Creates personalized prompts with GPT-4o mini
+  - `scoreUtterance()` - Evaluates user responses on a 0-1 scale
+
+## Audio Processing
+
+- [lib/audio.ts](mdc:lib/audio.ts) - Browser-based audio recording utilities:
+  - `useRecorder()` - React hook for microphone access and recording
+  - Special handling for iOS Safari with AudioContext resampling
+  - Produces 16kHz 16-bit PCM WAV files for Whisper
+
+## Type Definitions
+
+- [lib/types/firestore.ts](mdc:lib/types/firestore.ts) - Typescript interfaces for Firestore documents:
+  - `User` - User profile data
+  - `Topic` - User interest topics with embeddings
+  - `Session` - Completed speech practice sessions
+  - `Utterance` - Individual voice responses with scores
+
+## Firestore Utilities
+
+- [lib/utils/firestore.ts](mdc:lib/utils/firestore.ts) - Helper functions for Firestore operations:
+  - `setDocument()` - Creates/updates documents with timestamps
+  - `updateDocument()` - Updates specific document fields
+  - `getDocument()` - Retrieves typed documents
+  - `getDocumentRef()` - Gets typed document references
