@@ -29,9 +29,22 @@ export default function Home() {
     setError(null);
 
     try {
-      // Sign in with Google popup
+      // Ensure we're on the client side
+      if (typeof window === 'undefined') {
+        throw new Error('Authentication can only be performed on the client side');
+      }
+
+      // Initialize Google Auth Provider
       const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth as ReturnType<typeof getAuth>, provider);
+      
+      // Get auth instance
+      const auth = getAuth();
+      if (!auth) {
+        throw new Error('Firebase Auth is not initialized');
+      }
+
+      // Sign in with Google popup
+      const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
       if (!user) {
@@ -89,10 +102,12 @@ export default function Home() {
     <main className="min-h-screen bg-background">
       <Hero />
       <FeaturesSection />
+      {/* Patient testimonials section commented out to avoid potential legal issues
       <TestimonialSection 
         testimonials={testimonials}
         avatarPath="/images/testimonials/"
       />
+      */}
       <Cta 
         heading="Ready to Start Your Recovery Journey?"
         description="Join thousands of users who have improved their communication skills with Aphasia Coach."
@@ -108,7 +123,7 @@ export default function Home() {
         }}
       />
 
-      <section id="login" className="py-16 bg-muted/30">
+      <section id="login" className="py-24 bg-background">
         <div className="max-w-md mx-auto p-8 bg-card rounded-xl shadow-lg">
           <h2 className="text-2xl font-semibold mb-6 text-center">Sign In</h2>
           
@@ -153,19 +168,19 @@ export default function Home() {
 // Hero Section
 function Hero() {
   return (
-    <div className="w-full py-20 lg:py-40">
+    <div className="w-full py-24 lg:py-40">
       <div className="container mx-auto">
-        <div className="grid grid-cols-1 gap-8 items-center lg:grid-cols-2">
-          <div className="flex gap-4 flex-col">
+        <div className="grid grid-cols-1 gap-10 items-center lg:grid-cols-2">
+          <div className="flex gap-5 flex-col">
             <div>
               <Badge variant="outline">New Release</Badge>
             </div>
-            <div className="flex gap-4 flex-col">
-              <h1 className="text-5xl md:text-7xl max-w-lg tracking-tighter text-left font-regular">
+            <div className="flex gap-5 flex-col">
+              <h1 className="text-5xl md:text-7xl max-w-lg tracking-tighter text-left font-semibold">
                 Aphasia Coach
               </h1>
-              <p className="text-xl leading-relaxed tracking-tight text-muted-foreground max-w-md text-left">
-                A revolutionary app designed to help individuals with aphasia improve their communication skills through personalized exercises, real-time feedback, and progress tracking.
+              <p className="text-xl leading-relaxed tracking-tight text-muted-foreground max-w-lg text-left">
+                Improve your communication skills through personalized speech exercises and progress tracking.
               </p>
             </div>
             <div className="flex flex-row gap-4">
@@ -181,8 +196,8 @@ function Hero() {
               </Button>
             </div>
           </div>
-          <div className="bg-muted rounded-md aspect-square flex items-center justify-center">
-            <Brain className="w-32 h-32 text-primary/50" />
+          <div className="bg-muted rounded-xl aspect-square flex items-center justify-center">
+            <Brain className="w-36 h-36 text-primary/60" />
           </div>
         </div>
       </div>
@@ -193,19 +208,19 @@ function Hero() {
 // Features Section
 function FeaturesSection() {
   return (
-    <div id="features" className="py-20 lg:py-40 bg-background">
+    <div id="features" className="py-24 lg:py-44 bg-background">
       <div className="container mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-5xl font-bold mb-4">Features</h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Designed with speech therapists and patients in mind, Aphasia Coach offers a comprehensive suite of tools to support recovery.
+            Designed to support your recovery with personalized exercises and progress tracking.
           </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-10 md:gap-6 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-10 md:gap-8 max-w-5xl mx-auto">
           {features.map((feature) => (
             <div
               key={feature.title}
-              className="relative bg-gradient-to-b dark:from-neutral-900 from-neutral-100 dark:to-neutral-950 to-white p-6 rounded-3xl overflow-hidden"
+              className="relative bg-gradient-to-b from-zinc-100/30 to-zinc-300/30 p-8 rounded-3xl overflow-hidden"
             >
               <Grid size={20} />
               <div className="mb-4">
@@ -233,23 +248,34 @@ export const Grid = ({
   pattern?: number[][];
   size?: number;
 }) => {
-  const p = pattern ?? [
-    [Math.floor(Math.random() * 4) + 7, Math.floor(Math.random() * 6) + 1],
-    [Math.floor(Math.random() * 4) + 7, Math.floor(Math.random() * 6) + 1],
-    [Math.floor(Math.random() * 4) + 7, Math.floor(Math.random() * 6) + 1],
-    [Math.floor(Math.random() * 4) + 7, Math.floor(Math.random() * 6) + 1],
-    [Math.floor(Math.random() * 4) + 7, Math.floor(Math.random() * 6) + 1],
-  ];
+  const [squares, setSquares] = React.useState<number[][]>([]);
+
+  React.useEffect(() => {
+    // Generate pattern on the client side
+    if (!pattern) {
+      const newPattern = [
+        [7, 1],
+        [8, 2],
+        [9, 3],
+        [8, 4],
+        [7, 5],
+      ];
+      setSquares(newPattern);
+    } else {
+      setSquares(pattern);
+    }
+  }, [pattern]);
+
   return (
     <div className="pointer-events-none absolute left-1/2 top-0 -ml-20 -mt-2 h-full w-full [mask-image:linear-gradient(white,transparent)]">
-      <div className="absolute inset-0 bg-gradient-to-r [mask-image:radial-gradient(farthest-side_at_top,white,transparent)] dark:from-zinc-900/30 from-zinc-100/30 to-zinc-300/30 dark:to-zinc-900/30 opacity-100">
+      <div className="absolute inset-0 bg-gradient-to-r [mask-image:radial-gradient(farthest-side_at_top,white,transparent)] from-zinc-100/30 to-zinc-300/30 opacity-100">
         <GridPattern
           width={size ?? 20}
           height={size ?? 20}
           x="-12"
           y="4"
-          squares={p}
-          className="absolute inset-0 h-full w-full mix-blend-overlay dark:fill-white/10 dark:stroke-white/10 stroke-black/10 fill-black/10"
+          squares={squares}
+          className="absolute inset-0 h-full w-full mix-blend-overlay stroke-black/10 fill-black/10"
         />
       </div>
     </div>
@@ -279,12 +305,12 @@ function GridPattern({ width, height, x, y, squares, ...props }: any) {
         strokeWidth={0}
         fill={`url(#${patternId})`}
       />
-      {squares && (
+      {squares && squares.length > 0 && (
         <svg x={x} y={y} className="overflow-visible">
-          {squares.map(([x, y]: any) => (
+          {squares.map(([x, y]: number[], index: number) => (
             <rect
               strokeWidth="0"
-              key={`${x}-${y}`}
+              key={`${x}-${y}-${index}`}
               width={width + 1}
               height={height + 1}
               x={x * width}
@@ -317,12 +343,14 @@ const features = [
       "Monitor your recovery journey with detailed analytics and progress reports to celebrate milestones.",
     icon: <Clock className="w-8 h-8 text-primary" />,
   },
+  /* Expert-Designed feature commented out to avoid potential legal claims
   {
     title: "Expert-Designed",
     description:
       "Created in collaboration with speech therapists and neurologists to ensure evidence-based approaches.",
     icon: <Award className="w-8 h-8 text-primary" />,
   },
+  */
 ];
 
 // TestimonialSection Component
@@ -509,7 +537,7 @@ const Cta = ({
   },
 }: CtaProps) => {
   return (
-    <section className="py-32 flex items-center justify-center">
+    <section className="py-28 flex items-center justify-center bg-muted/10">
       <div className="container">
         <div className="flex w-full flex-col gap-16 overflow-hidden rounded-lg bg-accent p-8 md:rounded-xl lg:flex-row lg:items-center lg:p-16">
           <div className="flex-1">

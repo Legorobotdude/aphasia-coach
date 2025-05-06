@@ -1,0 +1,40 @@
+---
+description: Home Page
+globs: 
+alwaysApply: false
+---
+# Home Page Structure
+
+The Aphasia Coach home page ([app/page.tsx](mdc:app/page.tsx)) serves as the landing page for the application, designed with a professional and modern layout to explain the app's purpose and features.
+
+## Page Components
+
+The home page consists of several key components:
+
+1. **Hero Section** - Introduces the app with a brief description and call-to-action buttons
+2. **Features Section** - Displays the four main features of the app with icons and descriptions
+3. **Testimonials Section** - Carousel of patient success stories and feedback
+4. **Call-to-Action (CTA) Section** - Encourages users to sign in or learn more
+5. **Login Section** - Google authentication component for user sign-in
+
+## Authentication Flow
+
+The login component handles Google authentication using Firebase:
+- On successful sign-in, the app checks if the user has completed onboarding
+- If onboarding is complete, users are redirected to `/session`
+- If onboarding is not complete, users are redirected to `/onboarding`
+
+## UI Components
+
+The page uses several UI components from the Shadcn UI library:
+- Button
+- Badge
+- Card
+- Carousel
+- Avatar
+
+## Custom Components
+
+The page also includes custom components:
+- Grid/GridPattern - For decorative background patterns
+- GoogleIcon - SVG icon for the sign-in button

@@ -1,0 +1,39 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# UI Components
+
+Aphasia Coach uses the [Shadcn UI](mdc:https:/ui.shadcn.com) component library, which is built on Tailwind CSS and Radix UI. These components are integrated into the `/components/ui` directory.
+
+## Core Components
+
+### General UI
+- [Button](mdc:components/ui/button.tsx) - Used for actions, sign-in, and navigation
+- [Badge](mdc:components/ui/badge.tsx) - Used for status indicators and labels
+- [Card](mdc:components/ui/card.tsx) - Container for content like testimonials and features
+
+### Media and Display
+- [Avatar](mdc:components/ui/avatar.tsx) - Used for user and testimonial profiles
+- [Carousel](mdc:components/ui/carousel.tsx) - Used for testimonials and image galleries
+
+## Usage Guidelines
+
+1. **Consistency** - Use the provided components rather than creating new ones with similar functionality
+2. **Accessibility** - All components are built with accessibility in mind; maintain this standard
+3. **Styling** - Use the `cn()` utility from `@/lib/utils` for conditional class merging
+
+## Custom Styling
+
+For custom styling:
+- Use the `className` prop to extend components
+- Use Tailwind CSS utility classes
+- For complex variants, modify the component's source directly
+
+## Icons
+
+The application uses [Lucide React](mdc:https:/lucide.dev) for icons:
+- Import icons from `lucide-react`
+- Standard size is 16×16 (`w-4 h-4`) or 24×24 (`w-6 h-6`)
+- Match icon colors to the rest of the UI using Tailwind classes

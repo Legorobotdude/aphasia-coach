@@ -13,40 +13,38 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase for client-side
-let firebaseApp: FirebaseApp | undefined;
-let auth: Auth | undefined;
-let firestore: Firestore | undefined;
+let app: FirebaseApp;
+let auth: Auth;
+let firestore: Firestore;
 
-if (typeof window !== 'undefined' && !getApps().length) {
-  firebaseApp = initializeApp(firebaseConfig);
-  auth = getAuth(firebaseApp);
-  firestore = getFirestore(firebaseApp);
+// Initialize Firebase only on the client side
+if (typeof window !== 'undefined') {
+  // Check if Firebase is already initialized
+  if (!getApps().length) {
+    app = initializeApp(firebaseConfig);
+  } else {
+    app = getApps()[0];
+  }
+  auth = getAuth(app);
+  firestore = getFirestore(app);
 }
 
-// Export the potentially undefined instances if needed directly
-export { firebaseApp, auth };
+// Export the auth instance
+export { auth };
 
 // Export a getter function for Firestore that ensures initialization
 export function getFirestoreInstance(): Firestore {
   if (!firestore) {
-    if (typeof window !== 'undefined') {
-      if (!getApps().length) {
-        // Initialize if not already done (e.g., during SSR/fast refresh edge cases)
-        const app = initializeApp(firebaseConfig);
-        firestore = getFirestore(app);
-      } else {
-        // Use the existing app if initialization happened but variable wasn't assigned (unlikely but safe)
-        firestore = getFirestore(getApps()[0]);
-      }
-    } else {
-      // This case should ideally not happen if called from client-side code
-      // But throw an error to make it explicit
+    if (typeof window === 'undefined') {
       throw new Error("Firestore can only be initialized on the client-side.");
     }
-  }
-  if (!firestore) {
-     // If it's STILL undefined after the above, something is wrong
-     throw new Error("Failed to initialize Firestore.");
+    
+    if (!getApps().length) {
+      app = initializeApp(firebaseConfig);
+    } else {
+      app = getApps()[0];
+    }
+    firestore = getFirestore(app);
   }
   return firestore;
 } 

@@ -1,0 +1,60 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Landing Page Design Principles
+
+The Aphasia Coach landing page ([app/page.tsx](mdc:app/page.tsx)) follows specific design principles to ensure a professional, accessible, and user-friendly experience.
+
+## Color Scheme
+
+- **Primary** - Used for CTAs and important elements
+- **Background** - Light/dark mode compatible neutral background
+- **Accent** - Used for the CTA section background
+- **Muted** - Used for secondary text and subtle UI elements
+
+## Typography
+
+- **Headings** - Large, bold text for section headers (text-3xl to text-7xl)
+- **Body** - Regular weight text with good line spacing for readability
+- **Muted Text** - Lower contrast text for secondary information
+
+## Accessibility Considerations
+
+Aphasia Coach serves users with communication disabilities, so accessibility is paramount:
+
+1. **Text Readability**
+   - High contrast text
+   - Adequate text size (minimum 16px/1rem)
+   - Proper line spacing
+
+2. **Navigation**
+   - Clear, descriptive button labels
+   - Logical tab order
+   - Skip-to-content functionality
+
+3. **Semantic Structure**
+   - Proper heading hierarchy (h1, h2, h3)
+   - ARIA labels where necessary
+   - Keyboard navigable interface
+
+4. **Images and Media**
+   - Alt text for all images
+   - No auto-playing media that could distract users
+   - Non-essential animations can be disabled
+
+## Responsive Design
+
+The landing page is fully responsive with breakpoints at:
+- Mobile: Default
+- Tablet: md (768px)
+- Desktop: lg (1024px)
+
+## Continuing Development
+
+When enhancing the landing page:
+1. Maintain the established design system
+2. Test with screen readers and keyboard navigation
+3. Ensure all interactive elements have appropriate focus states
+4. Consider the needs of users with aphasia in all design decisions
