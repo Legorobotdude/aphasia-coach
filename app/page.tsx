@@ -80,9 +80,28 @@ export default function Home() {
       const userRef = doc(getFirestoreInstance(), "users", user.uid);
       const userSnap = await getDoc(userRef);
 
+      // Check for redirect cookie
+      const getCookie = (name: string) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop()?.split(';').shift();
+        return null;
+      };
+      
+      const redirectPath = getCookie('redirectAfterLogin');
+      
+      // Clear the redirect cookie
+      if (redirectPath) {
+        document.cookie = 'redirectAfterLogin=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+      }
+      
       if (userSnap.exists() && userSnap.data().onboardComplete) {
-        // Redirect to session page if onboarding is complete
-        router.push("/session");
+        // Redirect to the intended destination if it exists, otherwise go to session page
+        if (redirectPath) {
+          router.push(redirectPath);
+        } else {
+          router.push('/session');
+        }
       } else {
         // Create/update user document
         await setDoc(
@@ -95,9 +114,9 @@ export default function Home() {
           },
           { merge: true },
         );
-
-        // Redirect to onboarding flow
-        router.push("/onboarding");
+        
+        // Always redirect to onboarding if not completed, regardless of intended destination
+        router.push('/onboarding');
       }
     } catch (err) {
       console.error("Login error:", err);

@@ -18,12 +18,17 @@ export async function middleware(request: NextRequest) {
   
   // If no session cookie, redirect to login
   if (!sessionCookie) {
+    // Redirect to home page without query parameters
     const loginUrl = new URL('/', request.url);
-    // Add current path as redirect_to parameter
-    if (request.nextUrl.pathname !== '/') {
-      loginUrl.searchParams.set('redirect_to', request.nextUrl.pathname);
-    }
-    return NextResponse.redirect(loginUrl);
+    // Store the intended destination in a cookie instead of query param
+    const response = NextResponse.redirect(loginUrl);
+    response.cookies.set('redirectAfterLogin', request.nextUrl.pathname, {
+      path: '/',
+      maxAge: 60 * 10, // 10 minutes
+      httpOnly: true,
+      sameSite: 'lax'
+    });
+    return response;
   }
 
   return NextResponse.next();
