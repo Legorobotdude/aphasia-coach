@@ -42,6 +42,46 @@ export async function transcribeAudio(buffer: Buffer): Promise<string> {
   }
 }
 
+/**
+ * Generates speech from text using OpenAI's TTS API.
+ * @param text - The text to synthesize.
+ * @param voice - Optional voice model (e.g., 'alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'). Defaults to 'alloy'.
+ * @returns ArrayBuffer containing the audio data (typically MP3).
+ * @throws Error if speech synthesis fails.
+ */
+export async function generateSpeechFromText(
+  text: string,
+  voice: string = "alloy", // Default voice
+): Promise<ArrayBuffer> {
+  try {
+    console.log(`[OpenAI Lib] Generating speech for text: "${text.substring(0, 50)}...", Voice: ${voice}`);
+    
+    const response = await openai.audio.speech.create({
+      model: "tts-1", // Or "tts-1-hd" for higher quality
+      input: text,
+      voice: voice as | 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer', // Cast to accepted voice types
+      response_format: "mp3", // Default is mp3, can also be opus, aac, flac
+    });
+
+    // The response body is a ReadableStream. Convert it to an ArrayBuffer.
+    const audioArrayBuffer = await response.arrayBuffer();
+
+    if (!audioArrayBuffer || audioArrayBuffer.byteLength === 0) {
+      console.error("[OpenAI Lib] TTS API returned empty audio buffer.");
+      throw new Error("OpenAI API Error: TTS returned empty audio buffer.");
+    }
+
+    console.log(`[OpenAI Lib] Speech generated successfully. Audio size: ${audioArrayBuffer.byteLength} bytes.`);
+    return audioArrayBuffer;
+
+  } catch (error: any) {
+    console.error("[OpenAI Lib] Error generating speech:", error);
+    // Enhance error message to be more specific if possible
+    const errorMessage = error.response?.data?.error?.message || error.message || "Failed to generate speech due to an unknown OpenAI API error.";
+    throw new Error(`OpenAI API Error: ${errorMessage}`);
+  }
+}
+
 // Define the Prompt structure expected by the frontend
 interface Prompt {
   id: string; // This will now be the Firestore document ID

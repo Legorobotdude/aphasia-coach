@@ -206,6 +206,22 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
   const { user } = useAuth();
   const router = useRouter(); // Get router instance
 
+  // --- AudioContext for playing API-sourced audio --- //
+  // Keep a single AudioContext instance
+  const [audioContext, setAudioContext] = React.useState<AudioContext | null>(
+    null,
+  );
+  // Ensure AudioContext is created after user interaction / component mount
+  useEffect(() => {
+    if (typeof window !== "undefined" && !audioContext) {
+      setAudioContext(new window.AudioContext());
+    }
+    return () => {
+      audioContext?.close(); // Clean up on unmount
+    };
+  }, [audioContext]);
+  // --- End AudioContext --- //
+
   // --- Recorder Hook Integration --- //
   const {
     isRecording,
@@ -378,56 +394,76 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
   const currentPrompt = state.prompts[state.currentPromptIndex];
 
   // --- Mock Handlers (Replace with real logic) --- //
-  const handlePlayPrompt = useCallback(() => {
-    if (state.status === "SESSION_READY" && currentPrompt?.text) {
+  const handlePlayPrompt = useCallback(async () => {
+    if (
+      state.status === "SESSION_READY" &&
+      currentPrompt?.text &&
+      audioContext // Ensure AudioContext is available
+    ) {
       console.log("Dispatching START_PROMPT for:", currentPrompt.text);
       dispatch({ type: "START_PROMPT" });
 
-      // --- Integrate TTS --- //
       try {
-        // Cancel any previous speech first (important for iOS)
-        window.speechSynthesis.cancel();
+        // 1. Fetch audio from our API
+        const response = await fetch("/api/openai/tts", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ text: currentPrompt.text }),
+          // User session cookie should be sent automatically by the browser
+        });
 
-        const utterance = new SpeechSynthesisUtterance(currentPrompt.text);
-        // TODO: Add configuration for voice, rate, pitch based on user settings?
-        // utterance.voice = ...;
-        // utterance.rate = 1.0;
-        // utterance.pitch = 1.0;
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({})); // Try to get error details
+          console.error(
+            `TTS API request failed: ${response.status}`,
+            errorData,
+          );
+          dispatch({
+            type: "FETCH_PROMPTS_ERROR", // Reusing for simplicity, could be a new error type
+            payload:
+              `Failed to fetch audio: ${response.statusText} - ${errorData.error || "Unknown API error"}`,
+          });
+          return;
+        }
 
-        utterance.onend = () => {
-          console.log("Speech finished. Dispatching PROMPT_PLAYED");
-          dispatch({ type: "PROMPT_PLAYED" });
-          // TODO: Automatically start recording based on settings?
-        };
-
-        utterance.onerror = (event) => {
-          console.error("SpeechSynthesisUtterance.onerror", event);
-          // Handle error - maybe go back to ready state or show an error message?
+        // 2. Get audio data as ArrayBuffer
+        const audioData = await response.arrayBuffer();
+        if (audioData.byteLength === 0) {
+          console.error("TTS API returned empty audio data.");
           dispatch({
             type: "FETCH_PROMPTS_ERROR",
-            payload: `Speech synthesis error: ${event.error}`,
+            payload: "Received empty audio from TTS service.",
           });
-        };
+          return;
+        }
 
-        window.speechSynthesis.speak(utterance);
+        // 3. Decode and play audio
+        // Ensure AudioContext is in a running state (resumes if suspended by browser policy)
+        if (audioContext.state === "suspended") {
+          await audioContext.resume();
+        }
+        const audioBuffer = await audioContext.decodeAudioData(audioData);
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
+        source.onended = () => {
+          console.log("API audio finished. Dispatching PROMPT_PLAYED");
+          dispatch({ type: "PROMPT_PLAYED" });
+        };
+        source.start();
       } catch (error) {
-        console.error("Error initiating speech synthesis:", error);
+        console.error("Error during TTS API call or audio playback:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown TTS error";
         dispatch({
-          type: "FETCH_PROMPTS_ERROR",
-          payload: "Failed to start speech synthesis",
+          type: "FETCH_PROMPTS_ERROR", // Or a more specific error type
+          payload: `Speech synthesis error: ${errorMessage}`,
         });
       }
-      // --- End TTS Integration --- //
-
-      // Remove the old setTimeout simulation
-      /*
-      setTimeout(() => {
-        console.log('Dispatching PROMPT_PLAYED');
-        dispatch({ type: 'PROMPT_PLAYED' });
-      }, 2000); // Simulate playback time
-      */
     }
-  }, [state.status, currentPrompt]);
+  }, [state.status, currentPrompt, audioContext, dispatch]); // Added audioContext and dispatch
 
   // This function now focuses only on initiating the stop,
   // the actual processing happens in handleProcessRecording via the onDataAvailable callback
