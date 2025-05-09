@@ -641,7 +641,7 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
         console.log("[VoiceSession] Condition to update master prompt:", canUpdateMasterPrompt, { userId: user?.uid, promptId: currentPrompt?.id, scoreValue: score, typeOfScore: typeof score }); // LOG CONDITION CHECK
 
         if (canUpdateMasterPrompt) {
-          const userPromptRef = doc(db, 'users', user.uid, 'generatedPrompts', currentPrompt.id);
+          const userPromptRef = doc(db, 'users', user.uid, 'promptPool', currentPrompt.id);
           const updatePayload = {
             lastScore: score,
             lastUsedAt: serverTimestamp(),
