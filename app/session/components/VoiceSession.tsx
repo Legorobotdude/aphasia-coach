@@ -86,7 +86,9 @@ type Action =
   | { type: "SESSION_COMPLETE" }
   | { type: "SESSION_DOC_CREATED" }
   | { type: "SET_RECORDING_START_TIME"; payload: number }
-  | { type: "RESET" };
+  | { type: "RESET" }
+  | { type: "MARK_PASSED"; payload: { prompt: Prompt; ownerUid: string; } }
+  | { type: "MARK_FAILED"; payload: { prompt: Prompt; ownerUid: string; } };
 
 const initialState: State = {
   status: "IDLE",
@@ -167,6 +169,46 @@ function sessionReducer(state: State, action: Action): State {
       return { ...state, status: "ERROR", error: action.payload }; // Or go back to READY_TO_PROMPT?
     case "SHOW_FEEDBACK": // Might be automatically transitioned from PROCESSING_SUCCESS
       return { ...state, status: "FEEDBACK" };
+    case "MARK_PASSED":
+      // Create a mock utterance for passing
+      const passedUtterance: Utterance = {
+        id: `mock-passed-${Date.now()}`, // Unique mock ID
+        prompt: action.payload.prompt.text,
+        promptId: action.payload.prompt.id,
+        response: "User marked as passed (debug override)", // Mock response
+        score: 1.0, // High score for passing
+        feedback: "Great job! You passed this one.", // Positive feedback
+        latencyMs: 0, // Mock latency
+        createdAt: serverTimestamp(), // Use server timestamp placeholder
+        ownerUid: action.payload.ownerUid, // Use ownerUid from action payload
+        sessionId: state.sessionId || "unknown-session", // Get session ID from state
+      };
+      return {
+        ...state,
+        status: "FEEDBACK",
+        currentUtterance: passedUtterance,
+        completedUtterances: [...state.completedUtterances, passedUtterance], // Add to completed
+      };
+    case "MARK_FAILED":
+      // Create a mock utterance for failing
+      const failedUtterance: Utterance = {
+        id: `mock-failed-${Date.now()}`, // Unique mock ID
+        prompt: action.payload.prompt.text,
+        promptId: action.payload.prompt.id,
+        response: "User marked as failed (debug override)", // Mock response
+        score: 0.0, // Low score for failing
+        feedback: "Let's keep practicing this one.", // Encouraging feedback
+        latencyMs: 0, // Mock latency
+        createdAt: serverTimestamp(), // Use server timestamp placeholder
+        ownerUid: action.payload.ownerUid, // Use ownerUid from action payload
+        sessionId: state.sessionId || "unknown-session", // Get session ID from state
+      };
+      return {
+        ...state,
+        status: "FEEDBACK",
+        currentUtterance: failedUtterance,
+        completedUtterances: [...state.completedUtterances, failedUtterance], // Add to completed
+      };
     case "NEXT_PROMPT":
       const nextIndex = state.currentPromptIndex + 1;
       if (nextIndex < state.prompts.length) {
@@ -257,6 +299,7 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
     data: promptsData,
     error: promptsError,
     isLoading: promptsLoading,
+    mutate: mutatePrompts,
   } = useSWR(
     !focusModePromptId && user ? "/api/openai/prompts?batch=12" : null, // Only fetch if not in focus mode and user is available
     fetcher,
@@ -291,7 +334,11 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
         });
       }
     }
-  }, [promptsData, promptsError, promptsLoading, state.status, focusModePromptId]); // Added focusModePromptId
+  }, [
+    promptsData, promptsError, promptsLoading, 
+    state.status, 
+    focusModePromptId, user, dispatch
+  ]); // Added user and dispatch
 
   // --- Effect to Fetch Single Prompt for Focus Mode --- //
   useEffect(() => {
@@ -301,7 +348,7 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
       
       const fetchSinglePrompt = async () => {
         try {
-          const promptDocRef = doc(db, 'users', user.uid, 'promptPool', focusModePromptId);
+          const promptDocRef = doc(db, 'users', user.uid, 'generatedPrompts', focusModePromptId);
           const promptSnap = await getDoc(promptDocRef);
 
           if (promptSnap.exists()) {
@@ -587,7 +634,7 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
         console.log("[VoiceSession] Condition to update master prompt:", canUpdateMasterPrompt, { userId: user?.uid, promptId: currentPrompt?.id, scoreValue: score, typeOfScore: typeof score }); // LOG CONDITION CHECK
 
         if (canUpdateMasterPrompt) {
-          const userPromptRef = doc(db, 'users', user.uid, 'promptPool', currentPrompt.id);
+          const userPromptRef = doc(db, 'users', user.uid, 'generatedPrompts', currentPrompt.id);
           const updatePayload = {
             lastScore: score,
             lastUsedAt: serverTimestamp(),
@@ -699,6 +746,30 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
     state.sessionStartedAt,
   ]);
 
+  // --- Debug Handlers --- //
+  const handleMarkPassed = useCallback(() => {
+    if (currentPrompt && user) {
+      console.log("Marking prompt as PASSED (Debug)", currentPrompt);
+      dispatch({ type: "MARK_PASSED", payload: { prompt: currentPrompt, ownerUid: user.uid } });
+    }
+  }, [currentPrompt, user, dispatch]);
+
+  const handleMarkFailed = useCallback(() => {
+    if (currentPrompt && user) {
+      console.log("Marking prompt as FAILED (Debug)", currentPrompt);
+      dispatch({ type: "MARK_FAILED", payload: { prompt: currentPrompt, ownerUid: user.uid } });
+    }
+  }, [currentPrompt, user, dispatch]);
+  // --- End Debug Handlers --- //
+
+  // Calculate progress percentage
+  const progress = state.prompts.length > 0
+    ? ((state.currentPromptIndex + state.completedUtterances.length) / state.prompts.length) * 100
+    : 0;
+
+  // Calculate session duration for display / logging
+  const sessionDuration = calculateDuration(state.sessionStartedAt);
+
   // --- Render Logic --- //
 
   if (
@@ -713,7 +784,10 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
     return (
       <div>
         Error: {state.error}{" "}
-        <button onClick={() => dispatch({ type: "RESET" })}>Retry</button>
+        <button onClick={() => {
+          if (mutatePrompts) mutatePrompts(); // Trigger SWR revalidation
+          dispatch({ type: "RESET" });    // Reset local state
+        }}>Retry</button>
       </div>
     );
   }
@@ -800,6 +874,35 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
           {/* Navigation now happens in handleNext after Firestore write */}
         </div>
       )}
+
+      {/* Debug Buttons (Visible in relevant states) */}
+      {(state.status === "SESSION_READY" ||
+        state.status === "PLAYING_PROMPT" ||
+        state.status === "RECORDING" ||
+        state.status === "PROCESSING") &&
+        currentPrompt && (
+          <div className="mt-4 space-x-4">
+            <button
+              onClick={handleMarkPassed}
+              className="rounded bg-green-500 px-4 py-2 text-white hover:bg-green-600"
+            >
+              Mark Passed (Debug)
+            </button>
+            <button
+              onClick={handleMarkFailed}
+              className="rounded bg-red-500 px-4 py-2 text-white hover:bg-red-600"
+            >
+              Mark Failed (Debug)
+            </button>
+          </div>
+        )}
     </div>
   );
 }
+
+// Helper to calculate session duration
+const calculateDuration = (startedAt: number | null) => {
+  if (!startedAt) return null;
+  const now = Date.now();
+  return Math.round((now - startedAt) / 1000); // Duration in seconds
+};
