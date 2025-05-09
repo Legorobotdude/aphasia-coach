@@ -139,8 +139,8 @@ Generate **exactly 30 practice prompts** for user **${uid}**.
 
 Therapy design rules
 1. **Short & Clear** – ≤ 12 words. One idea only.
-2. **Single-Word Targets** – For every prompt that expects a short answer, there must be **one and only one widely accepted single-word answer** (e.g. “puppy”, “visa”).
-3. **Concrete Language** – Use everyday nouns/verbs; avoid “less-common word for…” style meta prompts.
+2. **Single-Word Targets** – For every prompt that expects a short answer, there must be **one and only one widely accepted single-word answer** (e.g. "puppy", "visa").
+3. **Concrete Language** – Use everyday nouns/verbs; avoid "less-common word for..." style meta prompts.
 4. **Non-Ambiguous Clues** – Describe a specific object, role, or action so only one answer fits.
 5. **Cue-Ready** – The prompt can accept a phonemic cue later (do NOT add cues now).
 6. **Friendly Tone** – Encouraging, no trick questions.
@@ -153,7 +153,7 @@ Therapy design rules
 * **6 Generic Vocabulary** → \`"category":"genericVocab"\`
   *Single-word answers from common knowledge (animals, food, household, actions, opposites).*
 * **6 Challenge** → \`"category":"challenge"\`
-  *Less frequent but concrete single-word targets (e.g., “durable”, “passport”).*
+  *Less frequent but concrete single-word targets (e.g., "durable", "passport").*
 
 ### Mandatory answer key
 *Every non-open prompt **must include an \`"answer"\` field** with that single word.  
@@ -212,23 +212,26 @@ Open-ended prompts omit the \`"answer"\` key.*
     const batch = adminFirestore.batch();
     const generatedPrompts: Prompt[] = [];
     for (const p of result.prompts) {
-      if (typeof p.prompt !== 'string' || typeof p.category !== 'string') {
-        console.warn('[generatePromptDocs] Skipping invalid prompt item (missing prompt or category):', p);
+      const promptText = p.text || p.prompt;
+
+      if (typeof promptText !== 'string' || typeof p.category !== 'string') {
+        console.warn('[generatePromptDocs] Skipping invalid prompt item (missing or non-string text/prompt or category). Detailed p follows:', p);
+        console.warn(`[generatePromptDocs] Details: typeof promptText was ${typeof promptText}, typeof p.category was ${typeof p.category}`);
         continue;
       }
       const cleanCategory = ['open', 'personalVocab', 'genericVocab', 'challenge'].includes(p.category) ? p.category : null;
       if (!cleanCategory) {
-        console.warn(`[generatePromptDocs] Skipping prompt with invalid category (${p.category}):`, p.prompt);
+        console.warn(`[generatePromptDocs] Skipping prompt with invalid category (${p.category}):`, promptText);
         continue;
       }
-      const normText = normalize(p.prompt);
+      const normText = normalize(promptText);
       if (existingNormalizedTexts.has(normText)) {
         deduped++;
         continue; // Skip this prompt, it's a duplicate
       }
       existingNormalizedTexts.add(normText); // Add to the set so new dups are prevented in the same batch
       const promptData = {
-        text: p.prompt,
+        text: promptText, // Use the determined prompt text
         category: cleanCategory,
         createdAt: Timestamp.now(),
         source: "onboarding-initial", // Or flag if generating for another reason
