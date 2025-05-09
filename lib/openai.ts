@@ -133,37 +133,37 @@ export async function generatePromptDocs(uid: string): Promise<Prompt[]> {
     // For brevity in logs, the above log inside the try block is good.
 
     // --- Step 2: Generate Prompts using Context --- //
-    const systemPrompt = `You are an aphasia-therapy assistant.  
-Goal: create **exactly 30 practice prompts** to exercise word-retrieval for user **${uid}**.
+    const systemPrompt = `\
+You are an aphasia-therapy assistant.  
+Generate **exactly 30 practice prompts** for user **${uid}**.
 
-Therapy design rules:
-1. **Clarity & Brevity** – Sentence ≤ 12 words. One idea only.
-2. **Single-Word Answers for Vocab Prompts** – ✅ Ask questions whose most typical answer is **one clear word** (e.g., "Cat", "Garden"). **Never** ask for multi-word phrases like "taking care".  
-3. **Concrete Language** – Prefer everyday objects / actions / feelings. Avoid abstract concepts unless tagged "challenge".
-4. **Cue-Ready** – Each prompt can accept a phonemic cue later (do *not* include cues now).
-5. **Positive Tone** – Friendly, encouraging wording.
+Therapy design rules
+1. **Short & Clear** – ≤ 12 words. One idea only.
+2. **Single-Word Targets** – For every prompt that expects a short answer, there must be **one and only one widely accepted single-word answer** (e.g. “puppy”, “visa”).
+3. **Concrete Language** – Use everyday nouns/verbs; avoid “less-common word for…” style meta prompts.
+4. **Non-Ambiguous Clues** – Describe a specific object, role, or action so only one answer fits.
+5. **Cue-Ready** – The prompt can accept a phonemic cue later (do NOT add cues now).
+6. **Friendly Tone** – Encouraging, no trick questions.
 
-Prompt mix (exact counts add to 30):
-- **9 Personalized Open-Ended Questions** (Assign category: "open")
-  *Purpose:* encourage longer expressive output about the user's life.
-- **9 Personalized Vocabulary Questions** (Assign category: "personalVocab")
-  *Purpose:* single-word or short-phrase answers tied to the user's context (job, hobbies, routines).
-- **6 Generic Vocabulary Questions** (Assign category: "genericVocab")
-  *Purpose:* common nouns or verbs outside the user's personal context (e.g., "What do you call a baby cat?").
-- **6 Challenge/Stretch Questions** (Assign category: "challenge")
-  *Purpose:* slightly less frequent words or tricker words.
+### Prompt mix (must total 30)
+* **9 Personalized Open-Ended** → \`"category":"open"\`
+  *Free speech about job, hobbies, family, culture, routines.*
+* **9 Personalized Vocabulary** → \`"category":"personalVocab"\`
+  *Single-word answers pulled from user context.*
+* **6 Generic Vocabulary** → \`"category":"genericVocab"\`
+  *Single-word answers from common knowledge (animals, food, household, actions, opposites).*
+* **6 Challenge** → \`"category":"challenge"\`
+  *Less frequent but concrete single-word targets (e.g., “durable”, “passport”).*
 
-Input context (JSON):
-The user's context will be provided in the User message in JSON format like this:
-{
-  "job": "...",
-  "hobbies": ["...", "..."],
-  "routines": "...",
-  "culture": "...",
-  "goals": "..."
-}
+### Mandatory answer key
+*Every non-open prompt **must include an \`"answer"\` field** with that single word.  
+Open-ended prompts omit the \`"answer"\` key.*
 
-Return ONLY a JSON object containing a single key "prompts". The value should be an array of exactly 30 JSON objects, each with keys "prompt" (holding the prompt text string) and "category" (a string: "open", "personalVocab", "genericVocab", or "challenge").`;
+### Input context
+\`\`\`json
+{ "job":"...", "hobbies":["..."], "routines":"...", "culture":"...", "goals":"..." }
+\`\`\`
+    `;
 
     const userContextMessage = onboardingContextJson; // Use the JSON string context
 

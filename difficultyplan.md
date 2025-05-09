@@ -154,54 +154,54 @@ A skill index (S), ranging from 0 to 100, will be maintained for each relevant p
 ## 7. Phased Implementation Order
 
 1.  **Data Model Update (Core):**
-    *   Rename Firestore collection `generatedPrompts` to `promptPool` (path: `users/{uid}/promptPool/{promptId}`). Update all CRUD operations.
-    *   Add new fields to `promptPool` documents: `category`, `difficulty` (nullable initially), and the five constituent difficulty dimension scores (e.g., `lexicalRarityScore`, `concretenessScore`, etc., all nullable initially).
-    *   Update the system prompt for OpenAI in `lib/openai.ts` to request prompts with a specified `category` ("open", "personalVocab", "genericVocab", "challenge").
-    *   Modify `generatePromptDocs` in `lib/openai.ts` to save the `category` returned by OpenAI (or inferred). Set `difficulty` and dimension scores to null/default for now.
+    *   **[COMPLETED]** Rename Firestore collection `generatedPrompts` to `promptPool` (path: `users/{uid}/promptPool/{promptId}`). Update all CRUD operations.
+    *   **[COMPLETED]** Add new fields to `promptPool` documents: `category`, `difficulty` (nullable initially), and the five constituent difficulty dimension scores (e.g., `lexicalRarityScore`, `concretenessScore`, etc., all nullable initially).
+    *   **[COMPLETED]** Update the system prompt for OpenAI in `lib/openai.ts` to request prompts with a specified `category` ("open", "personalVocab", "genericVocab", "challenge").
+    *   **[COMPLETED]** Modify `generatePromptDocs` in `lib/openai.ts` to save the `category` returned by OpenAI (or inferred). Set `difficulty` and dimension scores to null/default for now.
 
 2.  **`difficulty.js` Utility (V1 - Basic Dimensions):**
-    *   Create `lib/difficultyUtil.ts` (or similar).
-    *   Implement calculation for:
+    *   **[NOT STARTED]** Create `lib/difficultyUtil.ts` (or similar).
+    *   **[NOT STARTED]** Implement calculation for:
         *   `promptLength` (token count bucketed).
         *   `responseType` (estimated based on category or keywords).
-    *   Integrate basic lexical rarity (e.g., placeholder based on word length for now, or a very small high/low freq list).
-    *   Integrate basic concreteness (e.g., placeholder, or all concrete for now).
-    *   Semantic distance can be a placeholder (e.g., all "personalVocab" and "open" are close, "genericVocab" and "challenge" are further).
-    *   Implement the weighted `Difficulty Score D` formula using these (potentially placeholder) dimensions.
-    *   Update `generatePromptDocs` to call this utility and save the calculated `difficulty` and dimension scores.
+    *   **[NOT STARTED]** Integrate basic lexical rarity (e.g., placeholder based on word length for now, or a very small high/low freq list).
+    *   **[NOT STARTED]** Integrate basic concreteness (e.g., placeholder, or all concrete for now).
+    *   **[NOT STARTED]** Semantic distance can be a placeholder (e.g., all "personalVocab" and "open" are close, "genericVocab" and "challenge" are further).
+    *   **[NOT STARTED]** Implement the weighted `Difficulty Score D` formula using these (potentially placeholder) dimensions.
+    *   **[NOT STARTED]** Update `generatePromptDocs` to call this utility and save the calculated `difficulty` and dimension scores.
 
 3.  **User Skill Score Storage & Basic Elo Update:**
-    *   Add `skillScores: { personalVocab: number, genericVocab: number, challenge: number }` (all defaulting to e.g., 50) to `users/{uid}` document in Firestore. (Initially omit `open` from Elo).
-    *   In `VoiceSession.tsx` (`handleProcessRecording`):
+    *   **[NOT STARTED]** Add `skillScores: { personalVocab: number, genericVocab: number, challenge: number }` (all defaulting to e.g., 50) to `users/{uid}` document in Firestore. (Initially omit `open` from Elo).
+    *   **[NOT STARTED]** In `VoiceSession.tsx` (`handleProcessRecording`):
         *   Retrieve `prompt.category` and `prompt.difficulty` for the current prompt.
         *   Retrieve user's current `S_category` from their profile (fetched via `useAuth` or a dedicated context/hook if skill scores are updated frequently).
         *   Implement the Elo update formulas (`expected`, `result`, `S_next`).
         *   Update `users/{uid}.skillScores.{category}` in Firestore with `S_next`. *(Consider debouncing or end-of-session update for `skillScores` to reduce writes if per-utterance is too chatty).*
 
 4.  **Update `/api/openai/prompts` for Difficulty Bracketing:**
-    *   Modify this API route to:
+    *   **[NOT STARTED]** Modify this API route to:
         *   Accept user's current skill scores (`S_category`) as parameters (client will need to send them).
         *   Implement the prompt composition rules (e.g., how many of each category based on `S_genericVocab`).
         *   For each category, query `promptPool` using the `difficulty BETWEEN (S_category - δ) AND (S_category + δ)` clause.
         *   Handle cases where not enough prompts are found in the target difficulty band (e.g., widen `δ`, fetch from adjacent bands, or trigger new generation).
 
 5.  **Micro-Loop (Within Session - V1):**
-    *   In `VoiceSession.tsx`, implement streak counters for consecutive errors or fast correct answers.
-    *   If a streak is met, for now, log it. The actual "injection" of an easier/harder prompt can be a V2 if fetching on-the-fly is complex initially. Or, the main prompt fetch could return 1-2 "spare" easy/hard prompts.
+    *   **[NOT STARTED]** In `VoiceSession.tsx`, implement streak counters for consecutive errors or fast correct answers.
+    *   **[NOT STARTED]** If a streak is met, for now, log it. The actual "injection" of an easier/harder prompt can be a V2 if fetching on-the-fly is complex initially. Or, the main prompt fetch could return 1-2 "spare" easy/hard prompts.
 
 6.  **Nightly/Scheduled Job (V1 - Basic):**
-    *   Set up a Vercel CRON job pointing to an API route (e.g., `/api/cron/update-user-skills`).
-    *   Initially, this job might just log activity or perform very simple maintenance. Full re-computation of Elo scores for all users might be complex to start. The per-utterance Elo update is the primary driver. This job could be more for future decay models or global analytics.
+    *   **[NOT STARTED]** Set up a Vercel CRON job pointing to an API route (e.g., `/api/cron/update-user-skills`).
+    *   **[NOT STARTED]** Initially, this job might just log activity or perform very simple maintenance. Full re-computation of Elo scores for all users might be complex to start. The per-utterance Elo update is the primary driver. This job could be more for future decay models or global analytics.
 
 7.  **Testing & Iteration:**
-    *   Unit-test `difficultyUtil.ts` and Elo update logic.
-    *   Seed data for users and `promptPool` to test API responses.
-    *   A/B test the adaptive mode against the previous non-adaptive system if feasible, tracking engagement and user-reported satisfaction/frustration, alongside accuracy metrics.
+    *   **[IN PROGRESS - INFORMAL]** Unit-test `difficultyUtil.ts` and Elo update logic.
+    *   **[IN PROGRESS - INFORMAL]** Seed data for users and `promptPool` to test API responses.
+    *   **[IN PROGRESS - INFORMAL]** A/B test the adaptive mode against the previous non-adaptive system if feasible, tracking engagement and user-reported satisfaction/frustration, alongside accuracy metrics.
 
 8.  **Full `difficulty.js` Implementation (V2+):**
-    *   Integrate real SUBTLEX-US data for lexical rarity.
-    *   Integrate real MRC (or similar) data for concreteness, or develop/fine-tune a GPT-based estimator.
-    *   Implement prompt and user context embeddings and cosine similarity for semantic distance.
+    *   **[NOT STARTED]** Integrate real SUBTLEX-US data for lexical rarity.
+    *   **[NOT STARTED]** Integrate real MRC (or similar) data for concreteness, or develop/fine-tune a GPT-based estimator.
+    *   **[NOT STARTED]** Implement prompt and user context embeddings and cosine similarity for semantic distance.
 
 ## Prompt Pool Size, Deduplication, and Batch Assembly Policy (Update)
 
