@@ -95,6 +95,38 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionId": "promptPool",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "timesUsed",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastScore",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastUsedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionId": "promptPool",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "timesUsed",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastUsedAt",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

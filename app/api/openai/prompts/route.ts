@@ -59,24 +59,64 @@ export async function GET(req: NextRequest) {
     const userPromptsRef = adminFirestore
       .collection('users')
       .doc(userId)
-      .collection('generatedPrompts');
+      .collection('promptPool');
 
-    // Query for prompts: order by least used, then by oldest lastUsedAt (nulls first)
-    const cachedPromptsQuery = userPromptsRef
-      .orderBy('timesUsed', 'asc')
-      .orderBy('lastUsedAt', 'asc') // Firestore treats nulls as smaller than timestamps
-      .limit(BATCH_SIZE);
+    // Define recent window for prompt reuse (e.g., last 2 sessions is about ~1-2 days)
+    const RECENT_DAYS = 2;
+    const MASTERED_THRESHOLD = 0.85;
+    const nowTime = Date.now();
+    const recentCutoff = nowTime - (RECENT_DAYS * 24 * 60 * 60 * 1000); // in ms
 
-    const cachedPromptsSnapshot = await cachedPromptsQuery.get();
+    // Fetch *all* prompts (if user has < 120, otherwise, you could paginate)
+    const allPromptsSnapshot = await userPromptsRef.get();
+    let promptDocs = allPromptsSnapshot.docs;
 
-    if (!cachedPromptsSnapshot.empty) {
-      prompts = cachedPromptsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        text: doc.data().text,
-        // Potentially add other fields if the client needs them, like 'source' or 'lastScore' for debugging
-      }));
+    // First pass filter: only those not mastered recently and not over-served
+    let eligiblePrompts = promptDocs.filter(doc => {
+      const d = doc.data();
+      const lastScore = d.lastScore ?? 0;
+      const lastUsedAt = d.lastUsedAt ? d.lastUsedAt.toDate().getTime() : 0;
+      // Exclude if mastered (lastScore >= 0.85) AND used within the recent window
+      if (lastScore >= MASTERED_THRESHOLD && lastUsedAt > recentCutoff) return false;
+      // Exclude if used in last RECENT_DAYS
+      if (lastUsedAt > recentCutoff) return false;
+      return true;
+    });
+
+    // If too few eligible prompts, relax only the mastered filter
+    if (eligiblePrompts.length < BATCH_SIZE) {
+      eligiblePrompts = promptDocs.filter(doc => {
+        const d = doc.data();
+        const lastUsedAt = d.lastUsedAt ? d.lastUsedAt.toDate().getTime() : 0;
+        // Only filter by recently used
+        if (lastUsedAt > recentCutoff) return false;
+        return true;
+      });
     }
-    console.log(`[API /prompts] Fetched ${prompts.length} prompts from cache for user ${userId}.`);
+    // As a last resort, allow everything
+    if (eligiblePrompts.length < BATCH_SIZE) {
+      eligiblePrompts = promptDocs;
+    }
+
+    // Order eligible prompts by least-used and least-recently-used (ascending)
+    eligiblePrompts.sort((a, b) => {
+      // By timesUsed, then by lastUsedAt
+      const aD = a.data(), bD = b.data();
+      const tuA = aD.timesUsed ?? 0, tuB = bD.timesUsed ?? 0;
+      if (tuA !== tuB) return tuA - tuB;
+      // Nulls first (never used)
+      const luaA = aD.lastUsedAt ? aD.lastUsedAt.toDate().getTime() : 0;
+      const luaB = bD.lastUsedAt ? bD.lastUsedAt.toDate().getTime() : 0;
+      return luaA - luaB;
+    });
+
+    prompts = eligiblePrompts.slice(0, BATCH_SIZE).map(doc => ({
+      id: doc.id,
+      text: doc.data().text,
+      // category, difficulty, etc. can be added later if needed
+    }));
+
+    console.log(`[API /prompts] Using ${prompts.length} prompts (eligible pool size: ${eligiblePrompts.length} of ${promptDocs.length}) for user ${userId}.`);
 
     // --- Step 2: If Not Enough Prompts in Cache, Generate and Use/Recache --- //
     if (prompts.length < BATCH_SIZE) {

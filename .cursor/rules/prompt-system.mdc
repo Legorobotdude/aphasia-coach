@@ -1,0 +1,65 @@
+---
+description: Prompt System
+globs: 
+alwaysApply: false
+---
+# Aphasia Coach Prompt System
+
+This document outlines the lifecycle and management of practice prompts within the Aphasia Coach application. The system is designed to provide personalized and relevant prompts to users, track their performance, and suggest prompts for revisit.
+
+## Core Components & Flow
+
+1.  **Prompt Storage:**
+    *   Prompts are stored in a Firestore subcollection: `users/{uid}/generatedPrompts/{promptDocId}`.
+    *   Each document represents a unique prompt available to the user.
+    *   **Key Fields in `generatedPrompts` documents:**
+        *   `text` (string): The actual prompt text presented to the user.
+        *   `createdAt` (Timestamp): When the prompt was first generated and saved.
+        *   `source` (string): Indicates how the prompt was generated (e.g., "onboarding-initial", "api-cached").
+        *   `lastScore` (number | null): The score (0-1) the user achieved the last time they attempted this prompt. Null if never scored.
+        *   `timesUsed` (number): How many times this prompt has been included in a session.
+        *   `lastUsedAt` (Timestamp | null): When this prompt was last included in a session.
+        *   `ownerUid` (string): The UID of the user who owns this prompt.
+
+2.  **Initial Prompt Generation (Onboarding):**
+    *   At the end of the onboarding process, specifically in [app/onboarding/components/Wizard.tsx](mdc:app/onboarding/components/Wizard.tsx), a call is made to the API endpoint `POST /api/user/initialize-prompts`.
+    *   The [app/api/user/initialize-prompts/route.ts](mdc:app/api/user/initialize-prompts/route.ts) handler then calls the `generatePromptDocs(userId)` function from [lib/openai.ts](mdc:lib/openai.ts).
+    *   `generatePromptDocs` uses the user's onboarding answers (if available) as context to request personalized prompts from the OpenAI API.
+    *   These newly generated prompts are then saved as individual documents into the user's `users/{uid}/generatedPrompts` collection.
+
+3.  **Fetching Prompts for Voice Sessions:**
+    *   When a user starts a regular voice session, the frontend ([app/session/components/VoiceSession.tsx](mdc:app/session/components/VoiceSession.tsx)) requests prompts from the `GET /api/openai/prompts` endpoint.
+    *   The [app/api/openai/prompts/route.ts](mdc:app/api/openai/prompts/route.ts) handler implements a caching strategy:
+        *   It first attempts to fetch a batch of suitable prompts for the user from their `users/{uid}/generatedPrompts` collection. Prompts are prioritized based on `timesUsed` (ascending) and `lastUsedAt` (ascending).
+        *   If the number of suitable cached prompts is below a threshold (e.g., `BATCH_SIZE`), it calls `generatePromptDocs(userId)` to generate and save new prompts to the cache.
+        *   It then returns a batch of prompts to the client.
+        *   When prompts are fetched and returned, their `lastUsedAt` timestamp and `timesUsed` counter are updated in the `generatedPrompts` collection.
+
+4.  **Updating Prompt Performance After Attempt:**
+    *   During a voice session, after a user attempts a prompt and their response is scored, [app/session/components/VoiceSession.tsx](mdc:app/session/components/VoiceSession.tsx) (specifically in `handleProcessRecording`) updates the corresponding prompt's document in `users/{uid}/generatedPrompts`.
+    *   The `lastScore` field is updated with the new score.
+    *   `lastUsedAt` is updated to the current server timestamp.
+    *   `timesUsed` is incremented again (note: this means `timesUsed` reflects both being fetched for a session and being actually attempted/scored).
+
+5.  **Dashboard - "Words to Revisit":**
+    *   The user's dashboard ([app/dashboard/page.tsx](mdc:app/dashboard/page.tsx)) features a "Words to Revisit" section.
+    *   This section is populated by the `fetchPromptsToRevisit` function, which queries the user's `users/{uid}/generatedPrompts` collection.
+    *   It looks for prompts that have `timesUsed > 0` and a `lastScore < 0.6` (or a similar threshold).
+    *   The [app/dashboard/components/WordRevisitList.tsx](mdc:app/dashboard/components/WordRevisitList.tsx) displays these prompts along with their last score.
+
+6.  **Focused Practice Sessions:**
+    *   From the "Words to Revisit" list on the dashboard, users can click a "Practice" button.
+    *   This navigates them to a special voice session URL: `/session?mode=focus&promptId={promptDocId}`.
+    *   [app/session/page.tsx](mdc:app/session/page.tsx) detects these URL parameters.
+    *   [app/session/components/VoiceSession.tsx](mdc:app/session/components/VoiceSession.tsx), when in focus mode:
+        *   Bypasses the call to `/api/openai/prompts`.
+        *   Directly fetches the single specified prompt document from `users/{uid}/generatedPrompts/{promptDocId}`.
+        *   Initiates a voice session with only that single prompt.
+
+## Firestore Indexes
+
+Effective operation of this system relies on Firestore indexes for the `generatedPrompts` collection, defined in [firestore.indexes.json](mdc:firestore.indexes.json). Key queries include:
+*   Fetching batches for sessions (ordered by `timesUsed`, `lastUsedAt`).
+*   Fetching "words to revisit" for the dashboard (filtered by `timesUsed`, `lastScore`, ordered by `lastScore`, `lastUsedAt`).
+
+Refer to [firestore.indexes.json](mdc:firestore.indexes.json) for the specific index definitions.

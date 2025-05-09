@@ -19,6 +19,16 @@ service cloud.firestore {
       match /generatedPrompts/{promptId} {
         allow read, write: if request.auth.uid == userId;
       }
+
+      // Prompt Pool subcollection rules
+      match /promptPool/{promptId} {
+        // Allow authenticated users to read and update only their own prompts
+        allow read, update: if request.auth != null && request.auth.uid == userId;
+        // (Optional) Allow create if you want to enable user-initiated prompt creation
+        // allow create: if request.auth != null && request.auth.uid == userId;
+        // Disallow delete by default for data integrity
+        allow delete: if false;
+      }
     }
     
     // Topics collection rules

@@ -301,7 +301,7 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
       
       const fetchSinglePrompt = async () => {
         try {
-          const promptDocRef = doc(db, 'users', user.uid, 'generatedPrompts', focusModePromptId);
+          const promptDocRef = doc(db, 'users', user.uid, 'promptPool', focusModePromptId);
           const promptSnap = await getDoc(promptDocRef);
 
           if (promptSnap.exists()) {
@@ -582,12 +582,12 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
 
         console.log("Utterance persisted with ID:", newUtteranceDocRef.id);
 
-        // --- Update the master prompt in generatedPrompts collection --- //
+        // --- Update the master prompt in promptPool collection --- //
         const canUpdateMasterPrompt = user && currentPrompt && currentPrompt.id && typeof score === 'number';
         console.log("[VoiceSession] Condition to update master prompt:", canUpdateMasterPrompt, { userId: user?.uid, promptId: currentPrompt?.id, scoreValue: score, typeOfScore: typeof score }); // LOG CONDITION CHECK
 
         if (canUpdateMasterPrompt) {
-          const userPromptRef = doc(db, 'users', user.uid, 'generatedPrompts', currentPrompt.id);
+          const userPromptRef = doc(db, 'users', user.uid, 'promptPool', currentPrompt.id);
           const updatePayload = {
             lastScore: score,
             lastUsedAt: serverTimestamp(),

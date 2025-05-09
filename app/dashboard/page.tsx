@@ -74,7 +74,7 @@ const fetchPromptsToRevisit = async (uid: string | null): Promise<RevisitPrompt[
   }
   console.log('[Dashboard] fetchPromptsToRevisit: Fetching for UID:', uid);
 
-  const promptsToRevisitRef = collection(db, 'users', uid, 'generatedPrompts');
+  const promptsToRevisitRef = collection(db, 'users', uid, 'promptPool');
   const q = query(promptsToRevisitRef,
                   where('timesUsed', '>', 0),
                   where('lastScore', '<', 0.6),
