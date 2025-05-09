@@ -136,13 +136,12 @@ export async function generatePromptDocs(uid: string): Promise<Prompt[]> {
     const systemPrompt = `You are an aphasia-therapy assistant.  
 Goal: create **exactly 30 practice prompts** to exercise word-retrieval for user **${uid}**.
 
-Therapy guidelines to follow:
-1. **Clarity & Brevity** – Use short sentences (≤ 12 words). One concept per prompt.
-2. **High-Frequency Core Vocabulary** – Prefer common words; avoid jargon unless it appears in the user's context.
-3. **Semantic Variety** – Cover at least three different semantic categories (people, places, actions, objects, feelings, time).
-4. **Cue-Ready Structure** – Each prompt should be easy to re-ask with a cue (e.g., add "It starts with a B…").  
-   *Do not include the cue text now*, just ensure the sentence can accept one later.
-5. **Positive Framing** – Friendly tone, no trick questions.
+Therapy design rules:
+1. **Clarity & Brevity** – Sentence ≤ 12 words. One idea only.
+2. **Single-Word Answers for Vocab Prompts** – ✅ Ask questions whose most typical answer is **one clear word** (e.g., "Cat", "Garden"). **Never** ask for multi-word phrases like "taking care".  
+3. **Concrete Language** – Prefer everyday objects / actions / feelings. Avoid abstract concepts unless tagged "challenge".
+4. **Cue-Ready** – Each prompt can accept a phonemic cue later (do *not* include cues now).
+5. **Positive Tone** – Friendly, encouraging wording.
 
 Prompt mix (exact counts add to 30):
 - **9 Personalized Open-Ended Questions** (Assign category: "open")
@@ -152,7 +151,7 @@ Prompt mix (exact counts add to 30):
 - **6 Generic Vocabulary Questions** (Assign category: "genericVocab")
   *Purpose:* common nouns or verbs outside the user's personal context (e.g., "What do you call a baby cat?").
 - **6 Challenge/Stretch Questions** (Assign category: "challenge")
-  *Purpose:* slightly less frequent words or simple two-word collocations, still answerable in 1–3 words.
+  *Purpose:* slightly less frequent words or tricker words.
 
 Input context (JSON):
 The user's context will be provided in the User message in JSON format like this:
@@ -275,7 +274,7 @@ export async function scoreUtterance(
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4.1-mini",
       messages: [
         {
           role: "system",

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import useSWR from 'swr';
+import useSWRMutation from 'swr/mutation';
 import { db } from '@/lib/firebaseClient';
 import {
   collection, query, where, orderBy, limit, getDocs, Timestamp
@@ -147,9 +148,18 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const uid = user?.uid ?? null;
 
-  // Fetch Data using SWR
+  // State for prompt regeneration feedback
+  const [regenStatus, setRegenStatus] = useState<'idle' | 'loading' | 'success' | 'error'>(
+    'idle',
+  );
+  const [regenMessage, setRegenMessage] = useState<string>('');
+
+  // SWR for data
   const { data: sessions, error: sessionsError } = useSWR(uid ? ['sessions', uid] : null, () => fetchRecentSessions(uid));
-  const { data: promptsToRevisit, error: promptsToRevisitError } = useSWR(uid ? ['promptsToRevisit', uid] : null, () => fetchPromptsToRevisit(uid));
+  const { data: promptsToRevisit, error: promptsToRevisitError, mutate: mutatePromptsToRevisit } = useSWR(
+    uid ? ['promptsToRevisit', uid] : null,
+    () => fetchPromptsToRevisit(uid),
+  );
   const { data: invites, error: invitesError } = useSWR(uid ? ['invites', uid] : null, () => fetchInvites(uid));
 
   // --- Derived Data Calculation ---
@@ -175,6 +185,31 @@ export default function DashboardPage() {
       // promptsToRevisit is already RevisitPrompt[] which matches what WordRevisitList now expects
       return promptsToRevisit;
   }, [promptsToRevisit]);
+
+  // Handler for prompt regeneration
+  const handleRegeneratePrompts = async () => {
+    setRegenStatus('loading');
+    setRegenMessage('Regenerating prompts...');
+    try {
+      const res = await fetch('/api/user/initialize-prompts', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setRegenStatus('success');
+        setRegenMessage(`Successfully generated ${data.promptCount ?? ''} prompts.`);
+        // Refresh prompts to revisit
+        mutatePromptsToRevisit();
+      } else {
+        setRegenStatus('error');
+        setRegenMessage(data.error || 'Failed to regenerate prompts.');
+      }
+    } catch (err: any) {
+      setRegenStatus('error');
+      setRegenMessage(err.message || 'Failed to regenerate prompts.');
+    }
+  };
 
   // --- Render Logic ---
   if (authLoading) {
@@ -208,6 +243,20 @@ export default function DashboardPage() {
   return (
     <div className="container mx-auto p-4 space-y-6">
       <h1 className="text-2xl font-bold">Your Progress Dashboard</h1>
+
+      {/* Regenerate Prompts Button */}
+      <div className="mb-4 flex flex-col md:flex-row md:items-center md:space-x-4 space-y-2 md:space-y-0">
+        <button
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+          onClick={handleRegeneratePrompts}
+          disabled={regenStatus === 'loading'}
+        >
+          {regenStatus === 'loading' ? 'Regenerating...' : 'Regenerate Prompts'}
+        </button>
+        {regenStatus !== 'idle' && (
+          <span className={`text-sm ${regenStatus === 'success' ? 'text-green-600' : regenStatus === 'error' ? 'text-red-600' : 'text-gray-600'}`}>{regenMessage}</span>
+        )}
+      </div>
 
       {/* Charts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
