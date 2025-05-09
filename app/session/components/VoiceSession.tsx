@@ -88,7 +88,8 @@ type Action =
   | { type: "SET_RECORDING_START_TIME"; payload: number }
   | { type: "RESET" }
   | { type: "MARK_PASSED"; payload: { prompt: Prompt; ownerUid: string; } }
-  | { type: "MARK_FAILED"; payload: { prompt: Prompt; ownerUid: string; } };
+  | { type: "MARK_FAILED"; payload: { prompt: Prompt; ownerUid: string; } }
+  | { type: "SESSION_INITIALIZATION_ERROR"; payload: string };
 
 const initialState: State = {
   status: "IDLE",
@@ -227,6 +228,12 @@ function sessionReducer(state: State, action: Action): State {
     case "RESET":
       // Ensure reset clears the new fields too
       return { ...initialState };
+    case "SESSION_INITIALIZATION_ERROR":
+      return {
+        ...state,
+        status: "ERROR", // Keep general error status for UI consistency
+        error: action.payload, // Use the specific error message
+      };
     default:
       return state;
   }
@@ -401,8 +408,8 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
           console.error("Error creating initial session document:", error);
           // Transition to error state if initial write fails
           dispatch({
-            type: "FETCH_PROMPTS_ERROR",
-            payload: "Failed to initialize session.",
+            type: "SESSION_INITIALIZATION_ERROR", // Use new action type
+            payload: "Failed to create session in database. Please try again.", // More specific message
           });
         });
     }
