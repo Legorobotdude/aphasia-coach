@@ -84,23 +84,24 @@ export default function Home() {
       const getCookie = (name: string) => {
         const value = `; ${document.cookie}`;
         const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop()?.split(';').shift();
+        if (parts.length === 2) return parts.pop()?.split(";").shift();
         return null;
       };
-      
-      const redirectPath = getCookie('redirectAfterLogin');
-      
+
+      const redirectPath = getCookie("redirectAfterLogin");
+
       // Clear the redirect cookie
       if (redirectPath) {
-        document.cookie = 'redirectAfterLogin=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+        document.cookie =
+          "redirectAfterLogin=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;";
       }
-      
+
       if (userSnap.exists() && userSnap.data().onboardComplete) {
         // Redirect to the intended destination if it exists, otherwise go to session page
         if (redirectPath) {
           router.push(redirectPath);
         } else {
-          router.push('/session');
+          router.push("/session");
         }
       } else {
         // Create/update user document
@@ -114,9 +115,9 @@ export default function Home() {
           },
           { merge: true },
         );
-        
+
         // Always redirect to onboarding if not completed, regardless of intended destination
-        router.push('/onboarding');
+        router.push("/onboarding");
       }
     } catch (err) {
       console.error("Login error:", err);
@@ -128,38 +129,35 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background">
-      <Hero />
-      <FeaturesSection />
-      {/* Patient testimonials section commented out to avoid potential legal issues
-      <TestimonialSection 
-        testimonials={testimonials}
-        avatarPath="/images/testimonials/"
-      />
-      */}
-      <Cta
-        heading="Ready to Start Your Recovery Journey?"
-        description="Join thousands of users who have improved their communication skills with Aphasia Coach."
-        buttons={{
-          primary: {
-            text: "Sign In",
-            url: "#login",
-          },
-          secondary: {
-            text: "Learn More",
-            url: "#features",
-          },
-        }}
-      />
-
-      <section id="login" className="py-24 bg-background">
-        <div className="max-w-md mx-auto p-8 bg-card rounded-xl shadow-lg">
+      <div className="w-full pt-8 pb-4 bg-background">
+        <Hero />
+      </div>
+      <div className="w-full py-8 bg-background">
+        <FeaturesSection />
+      </div>
+      <div className="w-full py-8 bg-muted/40">
+        <Cta
+          heading="Ready to Start Your Recovery Journey?"
+          description="Join thousands of users who have improved their communication skills with Aphasia Coach."
+          buttons={{
+            primary: {
+              text: "Sign In",
+              url: "#login",
+            },
+            secondary: {
+              text: "Learn More",
+              url: "#features",
+            },
+          }}
+        />
+      </div>
+      <section id="login" className="py-20 bg-background">
+        <div className="max-w-md mx-auto mt-8 mb-16 p-8 bg-card rounded-2xl shadow-2xl px-4 sm:px-8 border border-border">
           <h2 className="text-2xl font-semibold mb-6 text-center">Sign In</h2>
-
           <p className="mb-8 text-center text-muted-foreground">
             Sign in to start your personalized therapy sessions or continue your
             progress
           </p>
-
           <Button
             onClick={handleLogin}
             disabled={isLoading}
@@ -175,7 +173,6 @@ export default function Home() {
               </>
             )}
           </Button>
-
           {error && (
             <div className="mt-4 p-3 bg-destructive/10 text-destructive rounded-md">
               {error}
@@ -183,9 +180,8 @@ export default function Home() {
           )}
         </div>
       </section>
-
-      <footer className="w-full py-12 bg-muted text-center text-sm text-muted-foreground">
-        <div className="container mx-auto">
+      <footer className="w-full mt-16 pt-10 pb-12 bg-muted text-center text-sm text-muted-foreground border-t border-border">
+        <div className="container mx-auto px-4">
           <p>Aphasia Coach &copy; {new Date().getFullYear()}</p>
           <p className="mt-2">
             A revolutionary app designed to help individuals with aphasia
@@ -200,38 +196,41 @@ export default function Home() {
 // Hero Section
 function Hero() {
   return (
-    <div className="w-full py-16 lg:py-32">
-      <div className="container mx-auto">
-        <div className="grid grid-cols-1 gap-10 items-center lg:grid-cols-2">
+    <div className="container mx-auto px-4 sm:px-8">
+      <div className="grid grid-cols-1 gap-10 items-center lg:grid-cols-2">
+        <div className="flex gap-5 flex-col">
+          <div>
+            <Badge variant="outline">New Release</Badge>
+          </div>
           <div className="flex gap-5 flex-col">
-            <div>
-              <Badge variant="outline">New Release</Badge>
-            </div>
-            <div className="flex gap-5 flex-col">
-              <h1 className="text-5xl md:text-7xl max-w-lg tracking-tighter text-left font-semibold">
-                Aphasia Coach
-              </h1>
-              <p className="text-xl leading-relaxed tracking-tight text-muted-foreground max-w-lg text-left">
-                Improve your communication skills through personalized speech
-                exercises and progress tracking.
-              </p>
-            </div>
-            <div className="flex flex-row gap-4">
-              <Button size="lg" className="gap-4" variant="outline" asChild>
-                <a href="#features">
-                  Learn more <PhoneCall className="w-4 h-4" />
-                </a>
-              </Button>
-              <Button size="lg" className="gap-4" asChild>
-                <a href="#login">
-                  Sign in <MoveRight className="w-4 h-4" />
-                </a>
-              </Button>
-            </div>
+            <h1 className="text-5xl md:text-7xl max-w-lg tracking-tighter text-left font-semibold">
+              Aphasia Coach
+            </h1>
+            <p className="text-xl leading-relaxed tracking-tight text-muted-foreground max-w-lg text-left">
+              Improve your communication skills through personalized speech
+              exercises and progress tracking.
+            </p>
           </div>
-          <div className="bg-muted rounded-xl aspect-square flex items-center justify-center">
-            <Brain className="w-36 h-36 text-primary/60" />
+          <div className="flex flex-col gap-3 w-full max-w-lg md:flex-row md:gap-6 md:w-auto">
+            <Button
+              size="lg"
+              className="w-full md:w-auto gap-4"
+              variant="outline"
+              asChild
+            >
+              <a href="#features">
+                Learn more <PhoneCall className="w-4 h-4" />
+              </a>
+            </Button>
+            <Button size="lg" className="w-full md:w-auto gap-4" asChild>
+              <a href="#login">
+                Sign in <MoveRight className="w-4 h-4" />
+              </a>
+            </Button>
           </div>
+        </div>
+        <div className="bg-muted rounded-xl aspect-square flex items-center justify-center mt-8 lg:mt-0">
+          <Brain className="w-36 h-36 text-primary/60" />
         </div>
       </div>
     </div>
@@ -241,32 +240,30 @@ function Hero() {
 // Features Section
 function FeaturesSection() {
   return (
-    <div id="features" className="py-24 lg:py-44 bg-background">
-      <div className="container mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-5xl font-bold mb-4">Features</h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Designed to support your recovery with personalized exercises and
-            progress tracking.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-10 md:gap-8 max-w-5xl mx-auto">
-          {features.map((feature) => (
-            <div
-              key={feature.title}
-              className="relative bg-gradient-to-b from-zinc-100/30 to-zinc-300/30 p-8 rounded-3xl overflow-hidden"
-            >
-              <Grid size={20} />
-              <div className="mb-4">{feature.icon}</div>
-              <p className="text-base font-bold text-foreground relative z-20">
-                {feature.title}
-              </p>
-              <p className="text-muted-foreground mt-4 text-base font-normal relative z-20">
-                {feature.description}
-              </p>
-            </div>
-          ))}
-        </div>
+    <div id="features" className="container mx-auto px-4 sm:px-8">
+      <div className="text-center mb-16">
+        <h2 className="text-3xl md:text-5xl font-bold mb-4">Features</h2>
+        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          Designed to support your recovery with personalized exercises and
+          progress tracking.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        {features.map((feature) => (
+          <div
+            key={feature.title}
+            className="relative bg-gradient-to-b from-zinc-100/30 to-zinc-300/30 p-8 rounded-3xl overflow-hidden"
+          >
+            <Grid size={20} />
+            <div className="mb-4">{feature.icon}</div>
+            <p className="text-base font-bold text-foreground relative z-20">
+              {feature.title}
+            </p>
+            <p className="text-muted-foreground mt-4 text-base font-normal relative z-20">
+              {feature.description}
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -500,23 +497,23 @@ const Cta = ({
   },
 }: CtaProps) => {
   return (
-    <section className="py-28 flex items-center justify-center bg-muted/10">
-      <div className="container">
-        <div className="flex w-full flex-col gap-16 overflow-hidden rounded-lg bg-accent p-8 md:rounded-xl lg:flex-row lg:items-center lg:p-16">
+    <section className="flex items-center justify-center bg-accent/60 py-16 md:py-28">
+      <div className="container mx-auto px-4 sm:px-8">
+        <div className="flex w-full flex-col gap-16 overflow-hidden rounded-2xl bg-accent p-8 md:rounded-xl lg:flex-row lg:items-center lg:p-16 shadow-xl border border-border">
           <div className="flex-1">
             <h3 className="mb-3 text-2xl font-semibold md:mb-4 md:text-4xl lg:mb-6">
               {heading}
             </h3>
             <p className="text-muted-foreground lg:text-lg">{description}</p>
           </div>
-          <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+          <div className="flex flex-col gap-2 w-full sm:flex-row sm:w-auto sm:gap-2">
             {buttons.secondary && (
-              <Button variant="outline" asChild>
+              <Button variant="outline" asChild className="w-full sm:w-auto">
                 <a href={buttons.secondary.url}>{buttons.secondary.text}</a>
               </Button>
             )}
             {buttons.primary && (
-              <Button asChild>
+              <Button asChild className="w-full sm:w-auto">
                 <a href={buttons.primary.url}>{buttons.primary.text}</a>
               </Button>
             )}

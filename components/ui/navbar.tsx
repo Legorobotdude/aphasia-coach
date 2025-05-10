@@ -9,6 +9,14 @@ import { useAuth } from "@/context/AuthContext";
 import { auth } from "@/lib/firebaseClient";
 import { signOut } from "firebase/auth";
 import Image from "next/image";
+import {
+  Sheet,
+  SheetTrigger,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Menu } from "lucide-react";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -64,9 +72,9 @@ export function Navbar() {
           </Link>
         </div>
 
-        {/* Show nav links only when authenticated */}
+        {/* Desktop nav links */}
         {user && (
-          <nav className="flex items-center space-x-6 text-sm font-medium">
+          <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
             <Link
               href="/"
               className={cn(
@@ -99,7 +107,104 @@ export function Navbar() {
           </nav>
         )}
 
-        <div className="ml-auto flex items-center space-x-4">
+        {/* Mobile Hamburger Menu */}
+        <div className="flex md:hidden ml-auto">
+          <Sheet>
+            <SheetTrigger asChild>
+              <button
+                aria-label="Open navigation menu"
+                className="inline-flex items-center justify-center rounded-md p-2 text-foreground hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <Menu className="h-6 w-6" />
+              </button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-72 p-0">
+              <SheetHeader className="p-6 pb-2 border-b border-border">
+                <SheetTitle>
+                  <Link href="/" className="flex items-center space-x-2">
+                    <Brain className="h-6 w-6" />
+                    <span className="font-semibold">Aphasia Coach</span>
+                  </Link>
+                </SheetTitle>
+              </SheetHeader>
+              <nav className="flex flex-col gap-2 p-6">
+                {user && (
+                  <>
+                    <Link
+                      href="/"
+                      className={cn(
+                        "py-2 px-2 rounded hover:bg-accent text-base font-medium transition-colors",
+                        isActive("/")
+                          ? "bg-accent text-foreground"
+                          : "text-foreground/80",
+                      )}
+                    >
+                      Home
+                    </Link>
+                    <Link
+                      href="/dashboard"
+                      className={cn(
+                        "py-2 px-2 rounded hover:bg-accent text-base font-medium transition-colors",
+                        isActive("/dashboard")
+                          ? "bg-accent text-foreground"
+                          : "text-foreground/80",
+                      )}
+                    >
+                      Dashboard
+                    </Link>
+                    <Link
+                      href="/session"
+                      className={cn(
+                        "py-2 px-2 rounded hover:bg-accent text-base font-medium transition-colors",
+                        isActive("/session")
+                          ? "bg-accent text-foreground"
+                          : "text-foreground/80",
+                      )}
+                    >
+                      Practice Session
+                    </Link>
+                  </>
+                )}
+                <div className="mt-4 border-t border-border pt-4 flex flex-col gap-4">
+                  {!loading &&
+                    (user ? (
+                      <div className="flex items-center gap-3">
+                        {user.photoURL && (
+                          <Image
+                            src={user.photoURL}
+                            alt="User profile"
+                            width={40}
+                            height={40}
+                            className="h-10 w-10 rounded-full"
+                          />
+                        )}
+                        <span className="text-base font-medium truncate max-w-[120px]">
+                          {user.displayName || user.email}
+                        </span>
+                        <button
+                          onClick={handleSignOut}
+                          className="ml-auto flex items-center gap-2 px-3 py-2 rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 text-sm font-medium"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          Sign out
+                        </button>
+                      </div>
+                    ) : (
+                      <Link
+                        href="/#login"
+                        className="w-full flex items-center justify-center px-4 py-3 rounded-md bg-primary text-primary-foreground shadow hover:bg-primary/90 text-base font-medium"
+                      >
+                        Sign In
+                      </Link>
+                    ))}
+                </div>
+              </nav>
+            </SheetContent>
+          </Sheet>
+        </div>
+
+        {/* Desktop user actions */}
+        <div className="ml-auto hidden md:flex items-center space-x-4">
           {!loading && (
             <>
               {user ? (
