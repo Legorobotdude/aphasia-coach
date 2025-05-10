@@ -27,10 +27,10 @@ let db: IDBDatabase | null = null;
 async function initDB() {
   return new Promise<IDBDatabase>((resolve, reject) => {
     // Check if running in a browser environment before accessing indexedDB
-    if (typeof window === 'undefined' || !window.indexedDB) {
+    if (typeof window === "undefined" || !window.indexedDB) {
       console.warn("IndexedDB is not available in this environment.");
       // Resolve with null or a mock DB if necessary for server-side rendering or testing
-      resolve(null as any); // Or handle appropriately
+      resolve(null as unknown as IDBDatabase); // Or handle appropriately
       return;
     }
     const request = indexedDB.open(DB_NAME, 1);
@@ -105,7 +105,8 @@ export function OnboardingWizard() {
   // --- AudioContext for playing API-sourced audio --- //
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const [isQuestionPlaying, setIsQuestionPlaying] = useState(false);
-  const [currentAudioSource, setCurrentAudioSource] = useState<AudioBufferSourceNode | null>(null);
+  const [currentAudioSource, setCurrentAudioSource] =
+    useState<AudioBufferSourceNode | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined" && !audioContext) {
@@ -117,7 +118,6 @@ export function OnboardingWizard() {
       currentAudioSource?.disconnect();
       audioContext?.close().catch(console.error); // Clean up on unmount
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run once on mount
   // --- End AudioContext --- //
 
@@ -174,7 +174,12 @@ export function OnboardingWizard() {
 
   // --- TTS Functionality --- //
   const playCurrentQuestion = useCallback(async () => {
-    if (!currentQuestion || !currentQuestion.prompt || !audioContext || isQuestionPlaying) {
+    if (
+      !currentQuestion ||
+      !currentQuestion.prompt ||
+      !audioContext ||
+      isQuestionPlaying
+    ) {
       return;
     }
 
@@ -191,7 +196,7 @@ export function OnboardingWizard() {
         currentAudioSource.disconnect();
         setCurrentAudioSource(null);
       }
-       // Ensure AudioContext is running
+      // Ensure AudioContext is running
       if (audioContext.state === "suspended") {
         await audioContext.resume();
       }
@@ -236,18 +241,28 @@ export function OnboardingWizard() {
       setCurrentAudioSource(null);
       setWizardState("ready"); // Revert to ready on error
     }
-  }, [currentQuestion, audioContext, isQuestionPlaying, currentAudioSource, hasUserGestured]);
+  }, [
+    currentQuestion,
+    audioContext,
+    isQuestionPlaying,
+    currentAudioSource,
+    hasUserGestured,
+  ]);
 
   // Auto-play question when step changes or component mounts with a valid question
   useEffect(() => {
     // Only auto-play if it's not the first step on initial load without a gesture,
     // OR if a user gesture has already occurred.
-    if (currentQuestion && audioContext && wizardState === "ready" && !isQuestionPlaying) {
+    if (
+      currentQuestion &&
+      audioContext &&
+      wizardState === "ready" &&
+      !isQuestionPlaying
+    ) {
       if (step > 1 || hasUserGestured) {
-         playCurrentQuestion();
+        playCurrentQuestion();
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestion, audioContext, step, hasUserGestured]); // Added step and hasUserGestured
   // --- End TTS Functionality --- //
 
@@ -405,26 +420,40 @@ export function OnboardingWizard() {
       if (step === QUESTIONS.length) {
         try {
           setIsSubmitting(true); // Ensure submission state is active
-          setSubmitMessage("Finalizing onboarding and preparing your first set of exercises..."); // Feedback for user
+          setSubmitMessage(
+            "Finalizing onboarding and preparing your first set of exercises...",
+          ); // Feedback for user
 
           // Call API to initialize (generate and save) prompt docs
           // This is a POST request to the new endpoint. It uses the session cookie for auth.
-          const initPromptsResponse = await fetch(`/api/user/initialize-prompts`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json", // Though no body is sent, good practice
+          const initPromptsResponse = await fetch(
+            `/api/user/initialize-prompts`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json", // Though no body is sent, good practice
+              },
+              credentials: "include", // Important for sending session cookie
             },
-            credentials: "include", // Important for sending session cookie
-          });
+          );
 
           if (!initPromptsResponse.ok) {
-            const errorData = await initPromptsResponse.json().catch(() => ({ error: "Failed to initialize exercises. Please try again later." }));
-            throw new Error(errorData.error || "Failed to initialize exercises.");
+            const errorData = await initPromptsResponse
+              .json()
+              .catch(() => ({
+                error:
+                  "Failed to initialize exercises. Please try again later.",
+              }));
+            throw new Error(
+              errorData.error || "Failed to initialize exercises.",
+            );
           }
 
           const initResult = await initPromptsResponse.json();
           console.log("Prompt initialization successful:", initResult);
-          setSubmitMessage("Exercises ready! Taking you to your first session..."); // Update feedback
+          setSubmitMessage(
+            "Exercises ready! Taking you to your first session...",
+          ); // Update feedback
 
           // Update user's onboarding status in Firestore
           await setDoc(
@@ -441,11 +470,15 @@ export function OnboardingWizard() {
             router.push("/session");
           }, 1500); // 1.5 seconds delay
           return; // Return here to prevent resetting state below for next step
-
         } catch (err) {
-          console.error("Error during final onboarding step or prompt initialization:", err);
+          console.error(
+            "Error during final onboarding step or prompt initialization:",
+            err,
+          );
           setError(
-            err instanceof Error ? err.message : "An unexpected error occurred during final setup.",
+            err instanceof Error
+              ? err.message
+              : "An unexpected error occurred during final setup.",
           );
           setSubmitMessage(""); // Clear specific submit message on error
           setIsSubmitting(false); // Ensure submitting is false on error
@@ -518,12 +551,32 @@ export function OnboardingWizard() {
           aria-label="Play question audio"
         >
           {isQuestionPlaying ? (
-            <svg className="w-6 h-6 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.75V6.25M12 17.75V19.25M5.75002 5.75002L6.81002 6.81002M17.19 17.19L18.25 18.25M4.75 12H6.25M17.75 12H19.25M6.81002 17.19L5.75002 18.25M18.25 5.75002L17.19 6.81002" />
+            <svg
+              className="w-6 h-6 animate-spin"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 4.75V6.25M12 17.75V19.25M5.75002 5.75002L6.81002 6.81002M17.19 17.19L18.25 18.25M4.75 12H6.25M17.75 12H19.25M6.81002 17.19L5.75002 18.25M18.25 5.75002L17.19 6.81002"
+              />
             </svg>
           ) : (
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.536 8.464A5 5 0 0112 11.035V17.586a.5.5 0 01-.814.39L7.186 15.58a5 5 0 010-7.16l4-2.4a.5.5 0 01.814.39v3.055zM12 6.035a7 7 0 010 11.93" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M15.536 8.464A5 5 0 0112 11.035V17.586a.5.5 0 01-.814.39L7.186 15.58a5 5 0 010-7.16l4-2.4a.5.5 0 01.814.39v3.055zM12 6.035a7 7 0 010 11.93"
+              />
             </svg>
           )}
         </button>
@@ -545,7 +598,9 @@ export function OnboardingWizard() {
         {/* State: Playing Question (Visual Cue - can be a spinner or message) */}
         {wizardState === "playing_question" && (
           <div className="text-center py-4">
-            <p className="text-lg text-gray-600 dark:text-gray-400">Playing question...</p>
+            <p className="text-lg text-gray-600 dark:text-gray-400">
+              Playing question...
+            </p>
             {/* Optional: Add a more prominent loading indicator here */}
           </div>
         )}

@@ -1,9 +1,13 @@
 import OpenAI from "openai";
 import "server-only";
-import fs from 'fs';
-import path from 'path';
+import fs from "fs";
+import path from "path";
 import { adminFirestore } from "@/lib/firebaseAdmin";
-import { DocumentData, QueryDocumentSnapshot, Timestamp } from "firebase-admin/firestore";
+import {
+  DocumentData,
+  QueryDocumentSnapshot,
+  Timestamp,
+} from "firebase-admin/firestore";
 
 // Initialize the OpenAI client with API key from environment variables
 const openai = new OpenAI({
@@ -18,7 +22,7 @@ const openai = new OpenAI({
 export async function transcribeAudio(buffer: Buffer): Promise<string> {
   try {
     // Create a temporary file
-    const tempFilePath = path.join('/tmp', `audio-${Date.now()}.wav`);
+    const tempFilePath = path.join("/tmp", `audio-${Date.now()}.wav`);
     fs.writeFileSync(tempFilePath, buffer);
 
     // Use the file directly from the file system
@@ -54,12 +58,14 @@ export async function generateSpeechFromText(
   voice: string = "alloy", // Default voice
 ): Promise<ArrayBuffer> {
   try {
-    console.log(`[OpenAI Lib] Generating speech for text: "${text.substring(0, 50)}...", Voice: ${voice}`);
-    
+    console.log(
+      `[OpenAI Lib] Generating speech for text: "${text.substring(0, 50)}...", Voice: ${voice}`,
+    );
+
     const response = await openai.audio.speech.create({
       model: "tts-1", // Or "tts-1-hd" for higher quality
       input: text,
-      voice: voice as | 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer', // Cast to accepted voice types
+      voice: voice as "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer", // Cast to accepted voice types
       response_format: "mp3", // Default is mp3, can also be opus, aac, flac
     });
 
@@ -71,13 +77,23 @@ export async function generateSpeechFromText(
       throw new Error("OpenAI API Error: TTS returned empty audio buffer.");
     }
 
-    console.log(`[OpenAI Lib] Speech generated successfully. Audio size: ${audioArrayBuffer.byteLength} bytes.`);
+    console.log(
+      `[OpenAI Lib] Speech generated successfully. Audio size: ${audioArrayBuffer.byteLength} bytes.`,
+    );
     return audioArrayBuffer;
-
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[OpenAI Lib] Error generating speech:", error);
     // Enhance error message to be more specific if possible
-    const errorMessage = error.response?.data?.error?.message || error.message || "Failed to generate speech due to an unknown OpenAI API error.";
+    let errorMessage =
+      "Failed to generate speech due to an unknown OpenAI API error.";
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "message" in error &&
+      typeof (error as { message?: unknown }).message === "string"
+    ) {
+      errorMessage = (error as { message: string }).message;
+    }
     throw new Error(`OpenAI API Error: ${errorMessage}`);
   }
 }
@@ -99,30 +115,45 @@ export async function generatePromptDocs(uid: string): Promise<Prompt[]> {
     let onboardingContextJson = "{}"; // Default to an empty JSON object string
 
     try {
-      const userAnswersRef = adminFirestore.collection('users').doc(uid).collection('onboardingAnswers');
+      const userAnswersRef = adminFirestore
+        .collection("users")
+        .doc(uid)
+        .collection("onboardingAnswers");
       const answersSnapshot = await userAnswersRef.get();
 
       if (!answersSnapshot.empty) {
         const contextData: { [key: string]: string } = {}; // Assuming all transcripts are strings for now
-        answersSnapshot.docs.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
-          const data = doc.data();
-          // Ensure transcript exists and is a string before adding to context
-          if (data && typeof data.transcript === 'string') { 
-            contextData[doc.id] = data.transcript;
-          }
-        });
-        
+        answersSnapshot.docs.forEach(
+          (doc: QueryDocumentSnapshot<DocumentData>) => {
+            const data = doc.data();
+            // Ensure transcript exists and is a string before adding to context
+            if (data && typeof data.transcript === "string") {
+              contextData[doc.id] = data.transcript;
+            }
+          },
+        );
+
         if (Object.keys(contextData).length > 0) {
-            onboardingContextJson = JSON.stringify(contextData); // Compact JSON for the API call
-            console.log(`[generatePromptDocs] Fetched onboarding context (JSON) for user ${uid}:`, onboardingContextJson);
+          onboardingContextJson = JSON.stringify(contextData); // Compact JSON for the API call
+          console.log(
+            `[generatePromptDocs] Fetched onboarding context (JSON) for user ${uid}:`,
+            onboardingContextJson,
+          );
         } else {
-            console.log(`[generatePromptDocs] No valid onboarding answers with transcripts found for user ${uid}. Using empty JSON context.`);
+          console.log(
+            `[generatePromptDocs] No valid onboarding answers with transcripts found for user ${uid}. Using empty JSON context.`,
+          );
         }
       } else {
-         console.log(`[generatePromptDocs] No onboardingAnswers collection found for user ${uid}. Using empty JSON context.`);
+        console.log(
+          `[generatePromptDocs] No onboardingAnswers collection found for user ${uid}. Using empty JSON context.`,
+        );
       }
     } catch (firestoreError) {
-      console.error(`[generatePromptDocs] Error fetching onboarding answers for ${uid}:`, firestoreError);
+      console.error(
+        `[generatePromptDocs] Error fetching onboarding answers for ${uid}:`,
+        firestoreError,
+      );
       // Proceed with empty JSON context, onboardingContextJson is already "{}"
     }
     // --- End Step 1 --- //
@@ -188,24 +219,32 @@ Open-ended prompts omit the \`"answer"\` key.*
     );
 
     if (!result || !Array.isArray(result.prompts)) {
-        console.error('Invalid response structure from OpenAI prompt generation:', result);
-        return [];
+      console.error(
+        "Invalid response structure from OpenAI prompt generation:",
+        result,
+      );
+      return [];
     }
 
     const userPromptsCollectionRef = adminFirestore
-      .collection('users')
+      .collection("users")
       .doc(uid)
-      .collection('promptPool'); // Canonical prompt collection
+      .collection("promptPool"); // Canonical prompt collection
 
     // --- DEDUPLICATION STEP --- //
     // Fetch all existing prompt texts for this user and normalize for comparison
     const existingPromptsSnapshot = await userPromptsCollectionRef.get();
-    const normalize = (str: string) => str.toLowerCase().replace(/\s+/g, ' ').replace(/[^\w\s]/g, '').trim();
+    const normalize = (str: string) =>
+      str
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .replace(/[^\w\s]/g, "")
+        .trim();
     const existingNormalizedTexts = new Set(
       existingPromptsSnapshot.docs
-        .map(doc => doc.data().text)
+        .map((doc) => doc.data().text)
         .filter(Boolean)
-        .map(normalize)
+        .map(normalize),
     );
 
     let deduped = 0;
@@ -214,14 +253,29 @@ Open-ended prompts omit the \`"answer"\` key.*
     for (const p of result.prompts) {
       const promptText = p.text || p.prompt;
 
-      if (typeof promptText !== 'string' || typeof p.category !== 'string') {
-        console.warn('[generatePromptDocs] Skipping invalid prompt item (missing or non-string text/prompt or category). Detailed p follows:', p);
-        console.warn(`[generatePromptDocs] Details: typeof promptText was ${typeof promptText}, typeof p.category was ${typeof p.category}`);
+      if (typeof promptText !== "string" || typeof p.category !== "string") {
+        console.warn(
+          "[generatePromptDocs] Skipping invalid prompt item (missing or non-string text/prompt or category). Detailed p follows:",
+          p,
+        );
+        console.warn(
+          `[generatePromptDocs] Details: typeof promptText was ${typeof promptText}, typeof p.category was ${typeof p.category}`,
+        );
         continue;
       }
-      const cleanCategory = ['open', 'personalVocab', 'genericVocab', 'challenge'].includes(p.category) ? p.category : null;
+      const cleanCategory = [
+        "open",
+        "personalVocab",
+        "genericVocab",
+        "challenge",
+      ].includes(p.category)
+        ? p.category
+        : null;
       if (!cleanCategory) {
-        console.warn(`[generatePromptDocs] Skipping prompt with invalid category (${p.category}):`, promptText);
+        console.warn(
+          `[generatePromptDocs] Skipping prompt with invalid category (${p.category}):`,
+          promptText,
+        );
         continue;
       }
       const normText = normalize(promptText);
@@ -252,11 +306,12 @@ Open-ended prompts omit the \`"answer"\` key.*
     }
 
     await batch.commit();
-    console.log(`[generatePromptDocs] Generated ${result.prompts.length}. Skipped ${deduped} duplicates. Saved ${generatedPrompts.length} new prompts to promptPool for user ${uid}.`);
+    console.log(
+      `[generatePromptDocs] Generated ${result.prompts.length}. Skipped ${deduped} duplicates. Saved ${generatedPrompts.length} new prompts to promptPool for user ${uid}.`,
+    );
 
     return generatedPrompts;
     // --- End Step 3 --- //
-
   } catch (error) {
     console.error("[generatePromptDocs] Error:", error); // Changed logging key
     throw new Error("Failed to generate and save prompts");

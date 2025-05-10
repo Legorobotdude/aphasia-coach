@@ -8,34 +8,39 @@ import { Brain, LogOut } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { auth } from "@/lib/firebaseClient";
 import { signOut } from "firebase/auth";
+import Image from "next/image";
 
 export function Navbar() {
   const pathname = usePathname();
   const { user, loading } = useAuth();
-  const [authError, setAuthError] = React.useState<string | null>(null);
-  
+
   // Clear any URL parameters if they're causing issues
   React.useEffect(() => {
-    if (window.location.href.includes('redirect_to=')) {
+    if (window.location.href.includes("redirect_to=")) {
       try {
         // Clear the URL parameters without reloading the page
-        window.history.replaceState({}, document.title, window.location.pathname);
-        
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname,
+        );
+
         // Also clear any redirect cookies
-        fetch('/api/auth/clear-redirect')
-          .catch(error => console.error('Failed to clear redirect cookie:', error));
+        fetch("/api/auth/clear-redirect").catch((error) =>
+          console.error("Failed to clear redirect cookie:", error),
+        );
       } catch (error) {
-        console.error('Failed to clean URL:', error);
+        console.error("Failed to clean URL:", error);
       }
     }
   }, []);
-  
+
   const isActive = (path: string) => {
     // Get pathname without query parameters
-    const currentPath = pathname.split('?')[0];
-    
-    if (path === '/' && currentPath === '/') return true;
-    if (path !== '/' && currentPath.startsWith(path)) return true;
+    const currentPath = pathname.split("?")[0];
+
+    if (path === "/" && currentPath === "/") return true;
+    if (path !== "/" && currentPath.startsWith(path)) return true;
     return false;
   };
 
@@ -43,7 +48,7 @@ export function Navbar() {
     try {
       await signOut(auth);
       // After signing out, redirect to home page
-      window.location.href = '/';
+      window.location.href = "/";
     } catch (error) {
       console.error("Error signing out:", error);
     }
@@ -100,9 +105,11 @@ export function Navbar() {
               {user ? (
                 <div className="flex items-center gap-4">
                   {user.photoURL && (
-                    <img
+                    <Image
                       src={user.photoURL}
                       alt="User profile"
+                      width={32}
+                      height={32}
                       className="h-8 w-8 rounded-full"
                     />
                   )}

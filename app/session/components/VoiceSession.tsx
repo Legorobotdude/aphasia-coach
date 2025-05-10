@@ -87,8 +87,8 @@ type Action =
   | { type: "SESSION_DOC_CREATED" }
   | { type: "SET_RECORDING_START_TIME"; payload: number }
   | { type: "RESET" }
-  | { type: "MARK_PASSED"; payload: { prompt: Prompt; ownerUid: string; } }
-  | { type: "MARK_FAILED"; payload: { prompt: Prompt; ownerUid: string; } }
+  | { type: "MARK_PASSED"; payload: { prompt: Prompt; ownerUid: string } }
+  | { type: "MARK_FAILED"; payload: { prompt: Prompt; ownerUid: string } }
   | { type: "SESSION_INITIALIZATION_ERROR"; payload: string };
 
 const initialState: State = {
@@ -342,20 +342,32 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
       }
     }
   }, [
-    promptsData, promptsError, promptsLoading, 
-    state.status, 
-    focusModePromptId, user, dispatch
+    promptsData,
+    promptsError,
+    promptsLoading,
+    state.status,
+    focusModePromptId,
+    user,
+    dispatch,
   ]); // Added user and dispatch
 
   // --- Effect to Fetch Single Prompt for Focus Mode --- //
   useEffect(() => {
     if (focusModePromptId && user && state.status === "IDLE") {
       dispatch({ type: "FETCH_PROMPTS_START" });
-      console.log(`[VoiceSession] Focus mode: Fetching prompt with ID: ${focusModePromptId}`);
-      
+      console.log(
+        `[VoiceSession] Focus mode: Fetching prompt with ID: ${focusModePromptId}`,
+      );
+
       const fetchSinglePrompt = async () => {
         try {
-          const promptDocRef = doc(db, 'users', user.uid, 'promptPool', focusModePromptId);
+          const promptDocRef = doc(
+            db,
+            "users",
+            user.uid,
+            "promptPool",
+            focusModePromptId,
+          );
           const promptSnap = await getDoc(promptDocRef);
 
           if (promptSnap.exists()) {
@@ -367,12 +379,23 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
             // Dispatch success with an array containing the single prompt
             dispatch({ type: "FETCH_PROMPTS_SUCCESS", payload: [prompt] });
           } else {
-            console.error(`[VoiceSession] Focus mode: Prompt ${focusModePromptId} not found.`);
-            dispatch({ type: "FETCH_PROMPTS_ERROR", payload: "Focused prompt not found." });
+            console.error(
+              `[VoiceSession] Focus mode: Prompt ${focusModePromptId} not found.`,
+            );
+            dispatch({
+              type: "FETCH_PROMPTS_ERROR",
+              payload: "Focused prompt not found.",
+            });
           }
         } catch (error) {
-          console.error("[VoiceSession] Focus mode: Error fetching prompt:", error);
-          const errorMessage = error instanceof Error ? error.message : "Failed to fetch focused prompt.";
+          console.error(
+            "[VoiceSession] Focus mode: Error fetching prompt:",
+            error,
+          );
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch focused prompt.";
           dispatch({ type: "FETCH_PROMPTS_ERROR", payload: errorMessage });
         }
       };
@@ -476,8 +499,7 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
           );
           dispatch({
             type: "FETCH_PROMPTS_ERROR", // Reusing for simplicity, could be a new error type
-            payload:
-              `Failed to fetch audio: ${response.statusText} - ${errorData.error || "Unknown API error"}`,
+            payload: `Failed to fetch audio: ${response.statusText} - ${errorData.error || "Unknown API error"}`,
           });
           return;
         }
@@ -603,8 +625,11 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
             `Scoring failed: ${scoreRes.status} ${scoreRes.statusText} - ${errorBody.error || "Unknown error"}`,
           );
         }
-        const { score, feedback } = await scoreRes.json(); 
-        console.log("[VoiceSession] Scoring API returned:", { score, feedback }); // LOG SCORE AND FEEDBACK
+        const { score, feedback } = await scoreRes.json();
+        console.log("[VoiceSession] Scoring API returned:", {
+          score,
+          feedback,
+        }); // LOG SCORE AND FEEDBACK
 
         // 3. Persist Utterance
         console.log("Persisting utterance...");
@@ -637,25 +662,54 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
         console.log("Utterance persisted with ID:", newUtteranceDocRef.id);
 
         // --- Update the master prompt in promptPool collection --- //
-        const canUpdateMasterPrompt = user && currentPrompt && currentPrompt.id && typeof score === 'number';
-        console.log("[VoiceSession] Condition to update master prompt:", canUpdateMasterPrompt, { userId: user?.uid, promptId: currentPrompt?.id, scoreValue: score, typeOfScore: typeof score }); // LOG CONDITION CHECK
+        const canUpdateMasterPrompt =
+          user &&
+          currentPrompt &&
+          currentPrompt.id &&
+          typeof score === "number";
+        console.log(
+          "[VoiceSession] Condition to update master prompt:",
+          canUpdateMasterPrompt,
+          {
+            userId: user?.uid,
+            promptId: currentPrompt?.id,
+            scoreValue: score,
+            typeOfScore: typeof score,
+          },
+        ); // LOG CONDITION CHECK
 
         if (canUpdateMasterPrompt) {
-          const userPromptRef = doc(db, 'users', user.uid, 'promptPool', currentPrompt.id);
+          const userPromptRef = doc(
+            db,
+            "users",
+            user.uid,
+            "promptPool",
+            currentPrompt.id,
+          );
           const updatePayload = {
             lastScore: score,
             lastUsedAt: serverTimestamp(),
             timesUsed: increment(1),
           };
-          console.log(`[VoiceSession] Attempting to update master prompt ${currentPrompt.id} with payload:`, updatePayload); // LOG PAYLOAD
+          console.log(
+            `[VoiceSession] Attempting to update master prompt ${currentPrompt.id} with payload:`,
+            updatePayload,
+          ); // LOG PAYLOAD
           try {
             await updateDoc(userPromptRef, updatePayload);
-            console.log(`[VoiceSession] Master prompt ${currentPrompt.id} updated successfully with score: ${score}`);
+            console.log(
+              `[VoiceSession] Master prompt ${currentPrompt.id} updated successfully with score: ${score}`,
+            );
           } catch (updateError) {
-            console.error(`[VoiceSession] CRITICAL: Failed to update master prompt ${currentPrompt.id}:`, updateError); // LOG UPDATE ERROR
+            console.error(
+              `[VoiceSession] CRITICAL: Failed to update master prompt ${currentPrompt.id}:`,
+              updateError,
+            ); // LOG UPDATE ERROR
           }
         } else {
-          console.warn("[VoiceSession] SKIPPED updating master prompt due to unmet conditions.");
+          console.warn(
+            "[VoiceSession] SKIPPED updating master prompt due to unmet conditions.",
+          );
         }
         // --- End master prompt update --- //
 
@@ -664,7 +718,10 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
           payload: { ...utteranceData, id: newUtteranceDocRef.id },
         });
       } catch (error: unknown) {
-        console.error("[VoiceSession] Processing error in handleProcessRecording:", error); // Enhanced logging
+        console.error(
+          "[VoiceSession] Processing error in handleProcessRecording:",
+          error,
+        ); // Enhanced logging
         const errorMessage =
           error instanceof Error
             ? error.message
@@ -757,25 +814,23 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
   const handleMarkPassed = useCallback(() => {
     if (currentPrompt && user) {
       console.log("Marking prompt as PASSED (Debug)", currentPrompt);
-      dispatch({ type: "MARK_PASSED", payload: { prompt: currentPrompt, ownerUid: user.uid } });
+      dispatch({
+        type: "MARK_PASSED",
+        payload: { prompt: currentPrompt, ownerUid: user.uid },
+      });
     }
   }, [currentPrompt, user, dispatch]);
 
   const handleMarkFailed = useCallback(() => {
     if (currentPrompt && user) {
       console.log("Marking prompt as FAILED (Debug)", currentPrompt);
-      dispatch({ type: "MARK_FAILED", payload: { prompt: currentPrompt, ownerUid: user.uid } });
+      dispatch({
+        type: "MARK_FAILED",
+        payload: { prompt: currentPrompt, ownerUid: user.uid },
+      });
     }
   }, [currentPrompt, user, dispatch]);
   // --- End Debug Handlers --- //
-
-  // Calculate progress percentage
-  const progress = state.prompts.length > 0
-    ? ((state.currentPromptIndex + state.completedUtterances.length) / state.prompts.length) * 100
-    : 0;
-
-  // Calculate session duration for display / logging
-  const sessionDuration = calculateDuration(state.sessionStartedAt);
 
   // --- Render Logic --- //
 
@@ -791,10 +846,14 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
     return (
       <div>
         Error: {state.error}{" "}
-        <button onClick={() => {
-          if (mutatePrompts) mutatePrompts(); // Trigger SWR revalidation
-          dispatch({ type: "RESET" });    // Reset local state
-        }}>Retry</button>
+        <button
+          onClick={() => {
+            if (mutatePrompts) mutatePrompts(); // Trigger SWR revalidation
+            dispatch({ type: "RESET" }); // Reset local state
+          }}
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -906,10 +965,3 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
     </div>
   );
 }
-
-// Helper to calculate session duration
-const calculateDuration = (startedAt: number | null) => {
-  if (!startedAt) return null;
-  const now = Date.now();
-  return Math.round((now - startedAt) / 1000); // Duration in seconds
-};
