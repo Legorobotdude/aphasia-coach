@@ -1,16 +1,19 @@
-import withPWA from 'next-pwa';
+import withPWA from "next-pwa";
 
 const pwaConfig = withPWA({
-  dest: 'public',
+  dest: "public",
   register: true,
   skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development',
+  disable: process.env.NODE_ENV === "development",
 });
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Your existing config here
-  
+
+  images: {
+    domains: ["lh3.googleusercontent.com"],
+  },
   // For MVP development, ignore ESLint errors during builds
   eslint: {
     // Warning: This ignores ESLint errors during builds - remove for production
@@ -19,4 +22,4 @@ const nextConfig = {
   // Keep TypeScript checks enabled to catch type errors
 };
 
-export default pwaConfig(nextConfig); 
+export default pwaConfig(nextConfig);
