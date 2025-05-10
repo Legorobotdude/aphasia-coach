@@ -119,6 +119,7 @@ export async function GET(req: NextRequest) {
     console.log(`[API /prompts] Using ${prompts.length} prompts (eligible pool size: ${eligiblePrompts.length} of ${promptDocs.length}) for user ${userId}.`);
 
     // --- Step 2: If Not Enough Prompts in Cache, Generate and Use/Recache --- //
+    // All prompt data is stored in 'promptPool'.
     if (prompts.length < BATCH_SIZE) {
       console.log(`[API /prompts] Not enough prompts in cache (${prompts.length}/${BATCH_SIZE}). Attempting to generate new prompts for user ${userId}.`);
       

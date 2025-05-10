@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation'; // Use next/navigation for App Rout
 
 // Define the structure of the prompt object this component now expects
 interface RevisitPromptItem {
-  id: string;   // The unique ID of the prompt (from generatedPrompts collection)
+  id: string;   // The unique ID of the prompt (from promptPool collection)
   text: string; // The prompt text
   lastScore: number; // The last score achieved for this prompt
 }

@@ -195,7 +195,7 @@ Open-ended prompts omit the \`"answer"\` key.*
     const userPromptsCollectionRef = adminFirestore
       .collection('users')
       .doc(uid)
-      .collection('promptPool');
+      .collection('promptPool'); // Canonical prompt collection
 
     // --- DEDUPLICATION STEP --- //
     // Fetch all existing prompt texts for this user and normalize for comparison

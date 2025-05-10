@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
     // 2. Call generatePromptDocs to create and save prompts
     // generatePromptDocs already handles fetching onboarding context and saving prompts to Firestore.
     console.log(`[API /initialize-prompts] Attempting to generate initial prompts for user ${userId}.`);
+    // All prompt data is stored in 'promptPool'.
     const generatedPrompts = await generatePromptDocs(userId);
 
     if (generatedPrompts && generatedPrompts.length > 0) {

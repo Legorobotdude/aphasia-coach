@@ -60,9 +60,9 @@ const fetchRecentSessions = async (uid: string | null): Promise<Session[]> => {
   }).filter(session => session.date instanceof Date); // Ensure date conversion worked
 };
 
-// --- NEW FETCHER for Prompts to Revisit from the generatedPrompts collection ---
+// --- FETCHER for Prompts to Revisit from the promptPool collection ---
 interface RevisitPrompt {
-  id: string;       // Firestore document ID of the prompt in generatedPrompts
+  id: string;       // Firestore document ID of the prompt in promptPool
   text: string;     // The prompt text
   lastScore: number; // The last score achieved on this prompt
   lastUsedAt: Date | null; // When it was last used

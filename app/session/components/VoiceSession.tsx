@@ -355,7 +355,7 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
       
       const fetchSinglePrompt = async () => {
         try {
-          const promptDocRef = doc(db, 'users', user.uid, 'generatedPrompts', focusModePromptId);
+          const promptDocRef = doc(db, 'users', user.uid, 'promptPool', focusModePromptId);
           const promptSnap = await getDoc(promptDocRef);
 
           if (promptSnap.exists()) {
