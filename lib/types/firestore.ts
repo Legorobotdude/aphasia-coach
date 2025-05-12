@@ -6,6 +6,11 @@ export interface User {
   onboardComplete: boolean;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
+  skillScores?: {
+    personalVocab: number;
+    genericVocab: number;
+    challenge: number;
+  };
 }
 
 export interface Topic {
@@ -30,6 +35,23 @@ export interface Utterance {
   score: number;
   latencyMs: number;
   createdAt?: Timestamp;
+}
+
+export interface GeneratedPrompt {
+  text: string;
+  createdAt: Timestamp;
+  source: string;
+  lastScore: number | null;
+  timesUsed: number;
+  lastUsedAt: Timestamp | null;
+  ownerUid: string;
+  category?: 'open' | 'personalVocab' | 'genericVocab' | 'challenge';
+  difficulty?: number;
+  freqNorm?: number;
+  abstractness?: number;
+  lengthScale?: number;
+  responseTypeScale?: number;
+  semanticDistanceScale?: number;
 }
 
 // Collection paths

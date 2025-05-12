@@ -8,6 +8,7 @@ import {
   QueryDocumentSnapshot,
   Timestamp,
 } from "firebase-admin/firestore";
+import { calculateDifficulty } from './difficultyUtil';
 
 // Initialize the OpenAI client with API key from environment variables
 const openai = new OpenAI({
@@ -109,213 +110,117 @@ interface Prompt {
  * @param uid - User ID to generate prompts for
  * @returns Array of prompt objects { id, text } - id is now Firestore doc ID.
  */
-export async function generatePromptDocs(uid: string): Promise<Prompt[]> {
+export async function generatePromptDocs({
+  uid,
+  targetCategory = 'genericVocab',
+  targetDifficulty = 50,
+  window = 8,
+  batch = 20,
+}: {
+  uid: string;
+  targetCategory?: 'open' | 'personalVocab' | 'genericVocab' | 'challenge';
+  targetDifficulty?: number;
+  window?: number;
+  batch?: number;
+}): Promise<void> {
+  const D_LOW = Math.max(0, targetDifficulty - window);
+  const D_HIGH = Math.min(100, targetDifficulty + window);
+
+  const systemPrompt = `
+    You are generating therapy prompts for aphasia rehab.
+    Return exactly ${batch} JSON objects.
+
+    ### Target specs
+    • category = "${targetCategory}"
+    • aim for difficulty **between ${D_LOW} and ${D_HIGH}** on a 0-100 scale
+      (see difficulty rubric below).
+
+    ### Difficulty rubric (internal)
+    0-30 very easy – high-frequency, concrete, single-word answers
+    31-50 moderate – everyday but less common, single-word answers
+    51-70 hard – low-frequency or abstract but concrete enough to cue
+    71-85 very hard – rare words, two-word collocations allowed
+    86-100 expert – do NOT output; reserved for future
+
+    ### Prompt format rules
+    1. One clear single-word answer unless <CATEGORY> is "open".
+    2. Sentence ≤ 12 words.
+    3. No "two-word phrase for…" meta wording.
+    4. Friendly tone.
+
+    ### Output JSON schema
+    { "prompt":"...", "category":"...", "answer":"..." }
+
+    ### Examples (good)
+    { "prompt":"Name the tool that trims tree branches.", "category":"personalVocab", "answer":"loppers" }
+    { "prompt":"What do you call a baby cat?", "category":"genericVocab", "answer":"kitten" }
+    { "prompt":"Name the document immigrants carry for travel.", "category":"challenge", "answer":"passport" }
+
+    Return as: { "prompts":[…${batch} items…] }
+    NO comments or markdown.
+  `;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4.1',
+    messages: [
+      { role: 'system', content: systemPrompt },
+    ],
+    temperature: 0.7,
+    max_tokens: 4096,
+  });
+
+  const responseText = response.choices[0].message.content || '';
+  let generatedPrompts: { prompt: string; category: string; answer: string }[] = [];
+
   try {
-    // --- Step 1: Fetch Onboarding Answers from Firestore --- //
-    let onboardingContextJson = "{}"; // Default to an empty JSON object string
-
-    try {
-      const userAnswersRef = adminFirestore
-        .collection("users")
-        .doc(uid)
-        .collection("onboardingAnswers");
-      const answersSnapshot = await userAnswersRef.get();
-
-      if (!answersSnapshot.empty) {
-        const contextData: { [key: string]: string } = {}; // Assuming all transcripts are strings for now
-        answersSnapshot.docs.forEach(
-          (doc: QueryDocumentSnapshot<DocumentData>) => {
-            const data = doc.data();
-            // Ensure transcript exists and is a string before adding to context
-            if (data && typeof data.transcript === "string") {
-              contextData[doc.id] = data.transcript;
-            }
-          },
-        );
-
-        if (Object.keys(contextData).length > 0) {
-          onboardingContextJson = JSON.stringify(contextData); // Compact JSON for the API call
-          console.log(
-            `[generatePromptDocs] Fetched onboarding context (JSON) for user ${uid}:`,
-            onboardingContextJson,
-          );
-        } else {
-          console.log(
-            `[generatePromptDocs] No valid onboarding answers with transcripts found for user ${uid}. Using empty JSON context.`,
-          );
-        }
-      } else {
-        console.log(
-          `[generatePromptDocs] No onboardingAnswers collection found for user ${uid}. Using empty JSON context.`,
-        );
-      }
-    } catch (firestoreError) {
-      console.error(
-        `[generatePromptDocs] Error fetching onboarding answers for ${uid}:`,
-        firestoreError,
-      );
-      // Proceed with empty JSON context, onboardingContextJson is already "{}"
+    const parsedResponse = JSON.parse(responseText);
+    if (parsedResponse.prompts && Array.isArray(parsedResponse.prompts)) {
+      generatedPrompts = parsedResponse.prompts;
     }
-    // --- End Step 1 --- //
-
-    // --- Log the context being sent --- //
-    // console.log("[generatePromptDocs] Context being sent to OpenAI:", onboardingContext); // Old log
-    // No need to log the full JSON string here again if logged above, or keep it if preferred.
-    // For brevity in logs, the above log inside the try block is good.
-
-    // --- Step 2: Generate Prompts using Context --- //
-    const systemPrompt = `\
-You are an aphasia-therapy assistant.  
-Generate **exactly 30 practice prompts** for user **${uid}**.
-
-Therapy design rules
-1. **Short & Clear** – ≤ 12 words. One idea only.
-2. **Single-Word Targets** – For every prompt that expects a short answer, there must be **one and only one widely accepted single-word answer** (e.g. "puppy", "visa").
-3. **Concrete Language** – Use everyday nouns/verbs; avoid "less-common word for..." style meta prompts.
-4. **Non-Ambiguous Clues** – Describe a specific object, role, or action so only one answer fits.
-5. **Cue-Ready** – The prompt can accept a phonemic cue later (do NOT add cues now).
-6. **Friendly Tone** – Encouraging, no trick questions.
-
-### Prompt mix (must total 30)
-* **9 Personalized Open-Ended** → \`"category":"open"\`
-  *Free speech about job, hobbies, family, culture, routines.*
-* **9 Personalized Vocabulary** → \`"category":"personalVocab"\`
-  *Single-word answers pulled from user context.*
-* **6 Generic Vocabulary** → \`"category":"genericVocab"\`
-  *Single-word answers from common knowledge (animals, food, household, actions, opposites).*
-* **6 Challenge** → \`"category":"challenge"\`
-  *Less frequent but concrete single-word targets (e.g., "durable", "passport").*
-
-### Mandatory answer key
-*Every non-open prompt **must include an \`"answer"\` field** with that single word.  
-Open-ended prompts omit the \`"answer"\` key.*
-
-### Input context
-\`\`\`json
-{ "job":"...", "hobbies":["..."], "routines":"...", "culture":"...", "goals":"..." }
-\`\`\`
-    `;
-
-    const userContextMessage = onboardingContextJson; // Use the JSON string context
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [
-        {
-          role: "system",
-          content: systemPrompt,
-        },
-        {
-          role: "user",
-          content: userContextMessage,
-        },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.7,
-    });
-
-    const result = JSON.parse(
-      completion.choices[0].message.content || '{"prompts":[]}',
-    );
-
-    if (!result || !Array.isArray(result.prompts)) {
-      console.error(
-        "Invalid response structure from OpenAI prompt generation:",
-        result,
-      );
-      return [];
-    }
-
-    const userPromptsCollectionRef = adminFirestore
-      .collection("users")
-      .doc(uid)
-      .collection("promptPool"); // Canonical prompt collection
-
-    // --- DEDUPLICATION STEP --- //
-    // Fetch all existing prompt texts for this user and normalize for comparison
-    const existingPromptsSnapshot = await userPromptsCollectionRef.get();
-    const normalize = (str: string) =>
-      str
-        .toLowerCase()
-        .replace(/\s+/g, " ")
-        .replace(/[^\w\s]/g, "")
-        .trim();
-    const existingNormalizedTexts = new Set(
-      existingPromptsSnapshot.docs
-        .map((doc) => doc.data().text)
-        .filter(Boolean)
-        .map(normalize),
-    );
-
-    let deduped = 0;
-    const batch = adminFirestore.batch();
-    const generatedPrompts: Prompt[] = [];
-    for (const p of result.prompts) {
-      const promptText = p.text || p.prompt;
-
-      if (typeof promptText !== "string" || typeof p.category !== "string") {
-        console.warn(
-          "[generatePromptDocs] Skipping invalid prompt item (missing or non-string text/prompt or category). Detailed p follows:",
-          p,
-        );
-        console.warn(
-          `[generatePromptDocs] Details: typeof promptText was ${typeof promptText}, typeof p.category was ${typeof p.category}`,
-        );
-        continue;
-      }
-      const cleanCategory = [
-        "open",
-        "personalVocab",
-        "genericVocab",
-        "challenge",
-      ].includes(p.category)
-        ? p.category
-        : null;
-      if (!cleanCategory) {
-        console.warn(
-          `[generatePromptDocs] Skipping prompt with invalid category (${p.category}):`,
-          promptText,
-        );
-        continue;
-      }
-      const normText = normalize(promptText);
-      if (existingNormalizedTexts.has(normText)) {
-        deduped++;
-        continue; // Skip this prompt, it's a duplicate
-      }
-      existingNormalizedTexts.add(normText); // Add to the set so new dups are prevented in the same batch
-      const promptData = {
-        text: promptText, // Use the determined prompt text
-        category: cleanCategory,
-        createdAt: Timestamp.now(),
-        source: "onboarding-initial", // Or flag if generating for another reason
-        lastUsedAt: null,
-        timesUsed: 0,
-        lastScore: null,
-        ownerUid: uid,
-        difficulty: null,
-        freqNorm: null,
-        abstractness: null,
-        lengthScale: null,
-        responseTypeScale: null,
-        semanticDistanceScale: null,
-      };
-      const newPromptRef = userPromptsCollectionRef.doc();
-      batch.set(newPromptRef, promptData);
-      generatedPrompts.push({ id: newPromptRef.id, text: promptData.text });
-    }
-
-    await batch.commit();
-    console.log(
-      `[generatePromptDocs] Generated ${result.prompts.length}. Skipped ${deduped} duplicates. Saved ${generatedPrompts.length} new prompts to promptPool for user ${uid}.`,
-    );
-
-    return generatedPrompts;
-    // --- End Step 3 --- //
   } catch (error) {
-    console.error("[generatePromptDocs] Error:", error); // Changed logging key
-    throw new Error("Failed to generate and save prompts");
+    console.error('Failed to parse OpenAI response:', error);
+    return;
   }
+
+  const promptPoolRef = adminFirestore
+    .collection('users')
+    .doc(uid)
+    .collection('promptPool');
+
+  const existingPromptsSnapshot = await promptPoolRef.get();
+  const existingPromptTexts = new Set(
+    existingPromptsSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return data.text ? data.text.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+    })
+  );
+
+  const newPrompts = generatedPrompts.filter(prompt => {
+    const normalizedText = prompt.prompt.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return !existingPromptTexts.has(normalizedText);
+  });
+
+  for (const prompt of newPrompts) {
+    const difficultyData = calculateDifficulty(prompt.prompt, prompt.category);
+    await promptPoolRef.add({
+      text: prompt.prompt,
+      createdAt: Timestamp.now(),
+      source: 'api-cached',
+      lastScore: null,
+      timesUsed: 0,
+      lastUsedAt: null,
+      ownerUid: uid,
+      category: prompt.category,
+      difficulty: difficultyData.difficulty,
+      freqNorm: difficultyData.freqNorm,
+      abstractness: difficultyData.abstractness,
+      lengthScale: difficultyData.lengthScale,
+      responseTypeScale: difficultyData.responseTypeScale,
+      semanticDistanceScale: difficultyData.semanticDistanceScale,
+    });
+  }
+
+  console.log(`Added ${newPrompts.length} new prompts to promptPool for user ${uid}.`);
 }
 
 /**

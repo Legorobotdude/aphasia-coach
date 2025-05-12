@@ -327,6 +327,42 @@ export default function DashboardPage() {
         )}
       </div>
 
+      {/* Add the new button */}
+      <div className="mb-4 flex flex-col md:flex-row md:items-center md:space-x-4 space-y-2 md:space-y-0">
+        <button
+          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+          onClick={async () => {
+            try {
+              setRegenStatus('loading');  // Reuse or adapt existing state if possible
+              setRegenMessage('Resetting prompts...');
+              const response = await fetch('/api/user/reset-prompts', {
+                method: 'POST',
+                credentials: 'include',
+              });
+              if (response.ok) {
+                setRegenStatus('success');
+                setRegenMessage('Prompts reset successfully.');
+                // Optionally refresh data here, e.g., mutatePromptsToRevisit();
+              } else {
+                setRegenStatus('error');
+                setRegenMessage('Failed to reset prompts.');
+              }
+            } catch (error) {
+              setRegenStatus('error');
+              setRegenMessage('Error resetting prompts.');
+            }
+          }}
+          disabled={regenStatus === 'loading'}
+        >
+          {regenStatus === 'loading' ? 'Resetting...' : 'Reset Prompts'}
+        </button>
+        {regenStatus !== 'idle' && (
+          <span className={`text-sm ${regenStatus === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+            {regenMessage}
+          </span>
+        )}
+      </div>
+
       {/* Charts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <AccuracyChart data={accuracyData} />

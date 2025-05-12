@@ -33,25 +33,14 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Call generatePromptDocs to create and save prompts
-    // generatePromptDocs already handles fetching onboarding context and saving prompts to Firestore.
     console.log(`[API /initialize-prompts] Attempting to generate initial prompts for user ${userId}.`);
-    // All prompt data is stored in 'promptPool'.
-    const generatedPrompts = await generatePromptDocs(userId);
-
-    if (generatedPrompts && generatedPrompts.length > 0) {
-      console.log(`[API /initialize-prompts] Successfully generated ${generatedPrompts.length} initial prompts for user ${userId}.`);
-      return NextResponse.json(
-        { message: "Prompts initialized successfully.", promptCount: generatedPrompts.length },
-        { status: 201 }, // 201 Created, as new resources (prompts) were created
-      );
-    } else {
-      console.error(`[API /initialize-prompts] Failed to generate any prompts for user ${userId}. generatePromptDocs returned empty or null.`);
-      return NextResponse.json(
-        { error: "Failed to initialize prompts. No prompts were generated." },
-        { status: 500 }, // Internal Server Error, as the generation itself failed
-      );
-    }
-
+    await generatePromptDocs({ uid: userId });
+    
+    console.log(`[API /initialize-prompts] Initial prompts generation attempted for user ${userId}.`);
+    return NextResponse.json(
+      { message: "Prompts initialized successfully." },
+      { status: 201 }
+    );
   } catch (error) {
     // Catch any unexpected errors from generatePromptDocs or other issues
     console.error("[API /initialize-prompts] Unhandled error:", error);

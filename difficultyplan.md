@@ -33,7 +33,7 @@ User performance will be tracked through several signals, primarily to update a 
 A skill index (S), ranging from 0 to 100, will be maintained for each relevant prompt category (e.g., `personalVocab`, `genericVocab`, `challenge`). This will be updated using an Elo-like formula after each scored utterance:
 
 1.  **Expected Outcome (`expected`):**
-    \[ expected = \frac{1}{1 + 10^{\frac{D - S\_{category}}{20}}} \]
+    \[ expected = \frac{1}{1 + 10^{\frac{D - S_{category}}{20}}} \]
     (Where D is the difficulty of the attempted prompt, and S_category is the user's current skill in that prompt's category. The divisor 20 implies a 200 Elo point difference gives a ~90% win rate, can be tuned).
 
 2.  **Actual Result (`result`):**
@@ -42,7 +42,7 @@ A skill index (S), ranging from 0 to 100, will be maintained for each relevant p
     - `result = 0` if `utterance.score < 0.8`
 
 3.  **Skill Update (`S_next`):**
-    \[ S*{next} = S*{category} + K \cdot (result - expected) \]
+    \[ S_{next} = S_{category} + K \cdot (result - expected) \]
     (K is a sensitivity factor, e.g., K ≈ 4 for finer adjustments, or K ≈ 16-32 for faster changes initially).
 
 ## 3. Adaptation Loops
@@ -171,7 +171,7 @@ The following diagram illustrates the flow of information in the adaptive system
         // ...
       }
       ```
-  2.  **LLM Prompting**: OpenAI (`gpt-4o-mini` or successor) is called with a difficulty-aware system prompt. The generation wrapper fills `<CATEGORY>`, `<BATCH>`, `<D_LOW>`, and `<D_HIGH>` from the `generatePromptDocs` parameters (`D_LOW = targetDifficulty - window`, `D_HIGH = targetDifficulty + window`).
+  2.  **LLM Prompting**: OpenAI (`gpt-4.1-mini` or successor) is called with a difficulty-aware system prompt. The generation wrapper fills `<CATEGORY>`, `<BATCH>`, `<D_LOW>`, and `<D_HIGH>` from the `generatePromptDocs` parameters (`D_LOW = targetDifficulty - window`, `D_HIGH = targetDifficulty + window`).
 
       ```text
       You are generating therapy prompts for aphasia rehab.
@@ -265,24 +265,24 @@ The following diagram illustrates the flow of information in the adaptive system
     - **[COMPLETED]** Rename Firestore collection `generatedPrompts` to `promptPool` (path: `users/{uid}/promptPool/{promptId}`). Update all CRUD operations.
     - **[COMPLETED]** Add new fields to `promptPool` documents: `category`, `difficulty` (nullable initially), and the five constituent difficulty dimension scores (e.g., `lexicalRarityScore`, `concretenessScore`, etc., all nullable initially).
     - **[COMPLETED]** Update the system prompt for OpenAI in `lib/openai.ts` to request prompts with a specified `category` ("open", "personalVocab", "genericVocab", "challenge") and to aim for a difficulty range. The `generatePromptDocs` function in `lib/openai.ts` will be updated to accept `targetCategory`, `targetDifficulty`, `window`, and `batch` parameters.
-    - **[COMPLETED]** Modify `generatePromptDocs` in `lib/openai.ts` to save the `category` returned by OpenAI (or inferred) and implement the post-generation scoring, filtering, and deduplication logic. Set `difficulty` and dimension scores to null/default for prompts generated before this system is active.
+    - **[PARTIALLY COMPLETED]** Modify `generatePromptDocs` in `lib/openai.ts` to save the `category` returned by OpenAI (or inferred) and implement the post-generation scoring, filtering, and deduplication logic. Set `difficulty` and dimension scores to null/default for prompts generated before this system is active. (Note: Scoring and filtering logic may not be fully implemented yet.)
 
 2.  **`difficulty.js` Utility (V1 - Basic Dimensions):**
 
-    - **[NOT STARTED]** Create `lib/difficultyUtil.ts` (or similar).
-    - **[NOT STARTED]** Implement calculation for:
+    - **[COMPLETED]** Create `lib/difficultyUtil.ts` (or similar).
+    - **[COMPLETED]** Implement calculation for:
       - `promptLength` (token count bucketed).
       - `responseType` (estimated based on category or keywords).
-    - **[NOT STARTED]** Integrate basic lexical rarity (e.g., placeholder based on word length for now, or a very small high/low freq list).
-    - **[NOT STARTED]** Integrate basic concreteness (e.g., placeholder, or all concrete for now).
-    - **[NOT STARTED]** Semantic distance can be a placeholder (e.g., all "personalVocab" and "open" are close, "genericVocab" and "challenge" are further).
-    - **[NOT STARTED]** Implement the weighted `Difficulty Score D` formula using these (potentially placeholder) dimensions.
-    - **[NOT STARTED]** Update `generatePromptDocs` to call this utility and save the calculated `difficulty` and dimension scores.
+    - **[PARTIALLY COMPLETED]** Integrate basic lexical rarity (e.g., placeholder based on word length for now, or a very small high/low freq list). (Note: Currently using placeholders or basic approximations.)
+    - **[PARTIALLY COMPLETED]** Integrate basic concreteness (e.g., placeholder, or all concrete for now). (Note: Currently using placeholders.)
+    - **[PARTIALLY COMPLETED]** Semantic distance can be a placeholder (e.g., all "personalVocab" and "open" are close, "genericVocab" and "challenge" are further). (Note: Currently using placeholders.)
+    - **[COMPLETED]** Implement the weighted `Difficulty Score D` formula using these (potentially placeholder) dimensions.
+    - **[COMPLETED]** Update `generatePromptDocs` to call this utility and save the calculated `difficulty` and dimension scores.
 
 3.  **User Skill Score Storage & Basic Elo Update:**
 
-    - **[NOT STARTED]** Add `skillScores: { personalVocab: number, genericVocab: number, challenge: number }` (all defaulting to e.g., 50) to `users/{uid}` document in Firestore. (Initially omit `open` from Elo).
-    - **[NOT STARTED]** In `VoiceSession.tsx` (`handleProcessRecording`):
+    - **[COMPLETED]** Add `skillScores: { personalVocab: number, genericVocab: number, challenge: number }` (all defaulting to e.g., 50) to `users/{uid}` document in Firestore. (Initially omit `open` from Elo).
+    - **[COMPLETED]** In `VoiceSession.tsx` (`handleProcessRecording`):
       - Retrieve `prompt.category` and `prompt.difficulty` for the current prompt.
       - Retrieve user's current `S_category` from their profile (fetched via `useAuth` or a dedicated context/hook if skill scores are updated frequently).
       - Implement the Elo update formulas (`expected`, `result`, `S_next`).
@@ -290,12 +290,12 @@ The following diagram illustrates the flow of information in the adaptive system
 
 4.  **Update `/api/openai/prompts` for Difficulty Bracketing:**
 
-    - **[NOT STARTED]** Modify this API route to:
+    - **[COMPLETED]** Modify this API route to:
       - Accept user's current skill score for a given category (e.g. `S_category`) and `category` as parameters.
       - Implement the prompt composition rules (e.g., how many of each category based on `S_genericVocab`).
       - For each category, query `promptPool` using a difficulty band around `S_category` (e.g., `difficulty BETWEEN (S_category - band) AND (S_category + band)`).
       - Implement fallback logic if not enough prompts are found (widen band, fetch from adjacent bands).
-      - Return `main`, `easyBackups`, and `hardBackups` arrays for full session requests.
+      - Return `main`, `easyBackups`, and `hardBackups` arrays for full session requests. (Note: Currently returns only main prompts; easy/hard backups not implemented.)
 
 5.  **Micro-Loop (Within Session - V1):**
 
@@ -351,3 +351,22 @@ The following diagram illustrates the flow of information in the adaptive system
 
 This phased approach allows for incremental development and testing of a very sophisticated system.
 This wiring keeps the difficulty engine (data layer) and prompt generator (LLM layer) talking in a tight loop, ensuring users always practise at the right challenge level.
+
+## Implementation Steps
+
+- [x] **Define Difficulty Metrics**: Establish criteria for prompt difficulty across multiple dimensions (e.g., frequency, abstractness, length). Implemented in `lib/difficultyUtil.ts`.
+- [x] **Store User Skill Levels**: Update Firestore schema to include skill scores for users in different prompt categories. Completed in `lib/types/firestore.ts`.
+- [x] **Calculate Prompt Difficulty**: Develop a utility to calculate difficulty scores for prompts based on defined metrics. Implemented in `lib/difficultyUtil.ts`.
+- [x] **Integrate with Prompt Generation**: Modify OpenAI prompt generation to consider target difficulty ranges. Updated in `lib/openai.ts`.
+- [x] **Filter Prompts by Difficulty**: Adjust API routes to filter prompts based on user skill levels within a defined band. Implemented in `app/api/openai/prompts/route.ts`.
+- [x] **Update Skill Scores**: Implement Elo-based skill score updates after each utterance in the voice session. Completed in `app/session/components/VoiceSession.tsx`.
+- [ ] **Test and Refine Elo Formula**: Test the Elo rating system to ensure skill scores adjust appropriately (increase on success, decrease on failure) and refine the adjustment factor if necessary.
+- [ ] **Validate Difficulty Scaling**: Verify that prompt difficulty values are correctly scaled within the intended range (0-85) and adjust if needed.
+- [ ] **User Testing and Feedback**: Conduct user testing to gather feedback on the adaptive difficulty system and make iterative improvements.
+- [ ] **Documentation and Monitoring**: Add detailed documentation for the difficulty system and set up monitoring to track its performance over time.
+
+## Notes
+
+- The system should maintain an optimal challenge level, ensuring users are neither overwhelmed nor under-challenged.
+- Logging has been added to track skill score updates and difficulty filtering for debugging purposes.
+- Further adjustments may be required based on user feedback and system performance analysis.

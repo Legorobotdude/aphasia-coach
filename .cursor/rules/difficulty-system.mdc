@@ -1,0 +1,30 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Adaptive Difficulty System
+
+The Aphasia Coach project implements an adaptive difficulty system to personalize therapy prompts for users based on their performance. This system adjusts the difficulty of prompts dynamically using an Elo-like rating mechanism.
+
+## Key Components
+
+- **Difficulty Calculation**: The difficulty of prompts is calculated across multiple dimensions such as frequency, abstractness, length, etc., as defined in [lib/difficultyUtil.ts](mdc:lib/difficultyUtil.ts). This utility provides a comprehensive score for each prompt.
+
+- **User Skill Scores**: Each user's skill level is tracked in Firestore under the `skillScores` field in the user document, with scores for different categories of prompts (e.g., 'genericVocab'). These scores are updated after each user interaction using an Elo-like formula.
+
+- **Prompt Filtering**: During prompt generation and selection, the system filters prompts to match the user's current skill level within a defined difficulty band, as implemented in [app/api/openai/prompts/route.ts](mdc:app/api/openai/prompts/route.ts).
+
+- **Elo Rating Updates**: After each user utterance, the skill score for the relevant category is updated in [app/session/components/VoiceSession.tsx](mdc:app/session/components/VoiceSession.tsx) using the Elo formula. This ensures that successful responses increase the skill score, while unsuccessful ones decrease it, adjusting future prompt difficulty accordingly.
+
+- **Firestore Integration**: The system integrates with Firestore to store and retrieve user skill scores and prompt difficulties, ensuring persistence across sessions.
+
+## Workflow
+
+1. **Prompt Generation**: When generating new prompts via OpenAI, the system calculates a target difficulty based on user performance history.
+2. **Prompt Selection**: API routes filter available prompts to align with the user's skill level.
+3. **User Interaction**: During a voice session, user responses are scored, and feedback is provided.
+4. **Skill Update**: Post-interaction, the user's skill score is recalculated using the Elo formula and updated in Firestore.
+5. **Adaptive Adjustment**: Subsequent prompts are chosen based on the updated skill score, creating a feedback loop for personalized difficulty adjustment.
+
+This system aims to maintain an optimal challenge level, ensuring users are neither overwhelmed nor under-challenged, thus enhancing the effectiveness of aphasia therapy.

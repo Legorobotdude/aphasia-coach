@@ -28,6 +28,8 @@ import { FieldValue } from "firebase/firestore";
 interface Prompt {
   id: string;
   text: string;
+  category?: string;
+  difficulty?: number;
   // Add other fields if they exist, e.g., label
 }
 
@@ -375,6 +377,8 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
             const prompt: Prompt = {
               id: promptSnap.id,
               text: promptData.text,
+              category: promptData.category,
+              difficulty: promptData.difficulty,
             };
             // Dispatch success with an array containing the single prompt
             dispatch({ type: "FETCH_PROMPTS_SUCCESS", payload: [prompt] });
@@ -713,6 +717,31 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
         }
         // --- End master prompt update --- //
 
+        // Fetch and log current user skill scores
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.data();
+        console.log('User Skill Scores Before Utterance:', userData?.skillScores || 'Not set');
+
+        // Update user skill score using Elo-like formula
+        const category = currentPrompt.category || 'genericVocab';
+        const currentSkill = userData?.skillScores?.[category] || 50;
+        const difficulty = currentPrompt.difficulty || 50;
+        const expected = 1 / (1 + Math.pow(10, (difficulty - currentSkill) / 10)); // Adjusted divisor for larger expected value differences
+        const result = score >= 0.8 ? 1 : 0;
+        const K = 8; // Increased adjustment factor for more significant changes
+        const newSkill = Math.round(currentSkill + K * (result - expected));
+        console.log(`Updating skill for ${category}: Old=${currentSkill}, New=${newSkill}, Expected=${expected}, Result=${result}`);
+        // Update Firestore with new skill score
+        await updateDoc(userRef, {
+          [`skillScores.${category}`]: newSkill,
+          updatedAt: serverTimestamp()
+        });
+        console.log('User Skill Scores After Update:', {
+          ...userData?.skillScores,
+          [category]: newSkill
+        });
+
         dispatch({
           type: "PROCESSING_SUCCESS",
           payload: { ...utteranceData, id: newUtteranceDocRef.id },
@@ -818,6 +847,8 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
         type: "MARK_PASSED",
         payload: { prompt: currentPrompt, ownerUid: user.uid },
       });
+      // Update user skill score for passed prompt
+      updateSkillScore(currentPrompt, user.uid, true);
     }
   }, [currentPrompt, user, dispatch]);
 
@@ -828,8 +859,33 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
         type: "MARK_FAILED",
         payload: { prompt: currentPrompt, ownerUid: user.uid },
       });
+      // Update user skill score for failed prompt
+      updateSkillScore(currentPrompt, user.uid, false);
     }
   }, [currentPrompt, user, dispatch]);
+
+  // Helper function to update skill score based on prompt result
+  const updateSkillScore = async (prompt: Prompt, userId: string, success: boolean) => {
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
+    const userData = userSnap.data();
+    const category = prompt.category || 'genericVocab';
+    const currentScore = userData?.skillScores?.[category] || 1500;
+    const difficulty = prompt.difficulty || 1500;
+    const expectedScore = 1 / (1 + Math.pow(10, (difficulty - currentScore) / 400));
+    const K = 16; // Increased K factor for more significant changes
+    const newScore = Math.round(currentScore + K * ((success ? 1 : 0) - expectedScore));
+    console.log(`Updating skill score for ${category}: current=${currentScore}, difficulty=${difficulty}, expected=${expectedScore}, new=${newScore}, success=${success}`);
+    // Update Firestore with new skill score
+    await updateDoc(userRef, {
+      [`skillScores.${category}`]: newScore,
+      updatedAt: serverTimestamp()
+    });
+    console.log('User Skill Scores After Update:', {
+      ...userData?.skillScores,
+      [category]: newScore
+    });
+  };
   // --- End Debug Handlers --- //
 
   // --- Render Logic --- //
