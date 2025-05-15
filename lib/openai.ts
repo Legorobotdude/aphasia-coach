@@ -198,26 +198,30 @@ export async function generatePromptDocs({
   const newPrompts = generatedPrompts.filter(prompt => {
     const normalizedText = prompt.prompt.toLowerCase().replace(/[^a-z0-9]/g, '');
     return !existingPromptTexts.has(normalizedText);
+  }).map(prompt => {
+    const difficultyData = calculateDifficulty(prompt.prompt, prompt.category);
+    return {
+      text: prompt.prompt,
+      category: prompt.category,
+      answer: prompt.answer,
+      difficulty: difficultyData.difficulty,
+      difficultyDimensions: {
+        freqNorm: difficultyData.freqNorm,
+        abstractness: difficultyData.abstractness,
+        lengthScale: difficultyData.lengthScale,
+        responseTypeScale: difficultyData.responseTypeScale,
+        semanticDistanceScale: difficultyData.semanticDistanceScale,
+      },
+      createdAt: Timestamp.now(),
+      lastUsed: null,
+      useCount: 0,
+      successRate: 0,
+      lastSuccess: null,
+    };
   });
 
   for (const prompt of newPrompts) {
-    const difficultyData = calculateDifficulty(prompt.prompt, prompt.category);
-    await promptPoolRef.add({
-      text: prompt.prompt,
-      createdAt: Timestamp.now(),
-      source: 'api-cached',
-      lastScore: null,
-      timesUsed: 0,
-      lastUsedAt: null,
-      ownerUid: uid,
-      category: prompt.category,
-      difficulty: difficultyData.difficulty,
-      freqNorm: difficultyData.freqNorm,
-      abstractness: difficultyData.abstractness,
-      lengthScale: difficultyData.lengthScale,
-      responseTypeScale: difficultyData.responseTypeScale,
-      semanticDistanceScale: difficultyData.semanticDistanceScale,
-    });
+    await promptPoolRef.add(prompt);
   }
 
   console.log(`Added ${newPrompts.length} new prompts to promptPool for user ${uid}.`);

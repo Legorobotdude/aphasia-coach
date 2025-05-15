@@ -169,32 +169,84 @@ export async function GET(req: NextRequest) {
       return luaA - luaB;
     });
 
-    prompts = eligiblePrompts.slice(0, BATCH_SIZE).map((doc) => ({
-      id: doc.id,
-      text: doc.data().text,
-      // Include category and difficulty for client-side use
-      category: doc.data().category || 'genericVocab',
-      difficulty: doc.data().difficulty || 50
-    }));
+    // Categorize prompts into main, easyBackups, and hardBackups
+    const mainPrompts = [];
+    const easyBackups = [];
+    const hardBackups = [];
+    for (const doc of eligiblePrompts) {
+      const d = doc.data();
+      let difficulty = d.difficulty || 50;
+      // Ensure difficulty is within 0-100 range
+      difficulty = Math.max(0, Math.min(100, difficulty));
+      const prompt = {
+        id: doc.id,
+        text: d.text,
+        category: d.category || 'genericVocab',
+        difficulty: difficulty
+      };
+      if (difficulty < skill - band / 2) {
+        if (easyBackups.length < 3) easyBackups.push(prompt);
+      } else if (difficulty > skill + band / 2) {
+        if (hardBackups.length < 3) hardBackups.push(prompt);
+      } else {
+        if (mainPrompts.length < BATCH_SIZE) mainPrompts.push(prompt);
+      }
+      if (mainPrompts.length === BATCH_SIZE && easyBackups.length === 3 && hardBackups.length === 3) break;
+    }
+
+    // If not enough main prompts, fill from backups
+    while (mainPrompts.length < BATCH_SIZE && easyBackups.length > 0) {
+      mainPrompts.push(easyBackups.shift());
+    }
+    while (mainPrompts.length < BATCH_SIZE && hardBackups.length > 0) {
+      mainPrompts.push(hardBackups.shift());
+    }
 
     console.log(
-      `[API /prompts] Using ${prompts.length} prompts (eligible pool size: ${eligiblePrompts.length} of ${promptDocs.length}) for user ${userId}.`,
+      `[API /prompts] Using ${mainPrompts.length} main prompts, ${easyBackups.length} easy backups, and ${hardBackups.length} hard backups for user ${userId}.`
     );
 
-    // --- Step 2: If Not Enough Prompts in Cache, Generate and Use/Recache --- //
-    // All prompt data is stored in 'promptPool'.
-    if (prompts.length < BATCH_SIZE) {
+    // If not enough main prompts after all filtering, generate more
+    if (mainPrompts.length < BATCH_SIZE || easyBackups.length < 3 || hardBackups.length < 3) {
       console.log(
-        `[API /prompts] Not enough prompts in cache (${prompts.length}/${BATCH_SIZE}). Attempting to generate new prompts for user ${userId}.`,
+        `[API /prompts] Not enough prompts in cache (Main: ${mainPrompts.length}/${BATCH_SIZE}, Easy: ${easyBackups.length}/3, Hard: ${hardBackups.length}/3). Attempting to generate new prompts for user ${userId}.`
       );
 
-      await generatePromptDocs({
-        uid: userId,
-        targetCategory: 'genericVocab',
-        targetDifficulty: 50,
-        window: 8,
-        batch: 20
-      }); // This function saves to Firestore but does not return prompts.
+      // Generate prompts for different difficulty levels
+      const generationPromises = [
+        generatePromptDocs({
+          uid: userId,
+          targetCategory: category as 'genericVocab' | 'personalVocab' | 'challenge' | 'open',
+          targetDifficulty: skill,
+          window: band,
+          batch: BATCH_SIZE // For main prompts
+        }).then(result => {
+          console.log(`[API /prompts] Generated ${(Array.isArray(result) ? result.length : 'N/A')} main prompts for skill ${skill}`);
+          return result;
+        }),
+        generatePromptDocs({
+          uid: userId,
+          targetCategory: category as 'genericVocab' | 'personalVocab' | 'challenge' | 'open',
+          targetDifficulty: Math.max(0, skill - 15),
+          window: band,
+          batch: 6 // For easy backups
+        }).then(result => {
+          console.log(`[API /prompts] Generated ${(Array.isArray(result) ? result.length : 'N/A')} easy prompts for skill ${Math.max(0, skill - 15)}`);
+          return result;
+        }),
+        generatePromptDocs({
+          uid: userId,
+          targetCategory: category as 'genericVocab' | 'personalVocab' | 'challenge' | 'open',
+          targetDifficulty: Math.min(100, skill + 15),
+          window: band,
+          batch: 6 // For hard backups
+        }).then(result => {
+          console.log(`[API /prompts] Generated ${(Array.isArray(result) ? result.length : 'N/A')} hard prompts for skill ${Math.min(100, skill + 15)}`);
+          return result;
+        })
+      ];
+
+      await Promise.all(generationPromises);
 
       // Re-query Firestore to get the newly generated prompts
       const newPromptsSnapshot = await userPromptsRef.get();
@@ -214,7 +266,7 @@ export async function GET(req: NextRequest) {
       });
 
       // If too few eligible prompts, relax only the mastered filter
-      if (newEligiblePrompts.length < BATCH_SIZE) {
+      if (newEligiblePrompts.length < BATCH_SIZE + 6) {
         newEligiblePrompts = newPromptDocs.filter((doc) => {
           const d = doc.data();
           const lastUsedAt = d.lastUsedAt ? d.lastUsedAt.toDate().getTime() : 0;
@@ -224,7 +276,7 @@ export async function GET(req: NextRequest) {
         });
       }
       // As a last resort, allow everything
-      if (newEligiblePrompts.length < BATCH_SIZE) {
+      if (newEligiblePrompts.length < BATCH_SIZE + 6) {
         newEligiblePrompts = newPromptDocs;
       }
 
@@ -240,41 +292,73 @@ export async function GET(req: NextRequest) {
         return luaA - luaB;
       });
 
-      prompts = newEligiblePrompts.slice(0, BATCH_SIZE).map((doc) => ({
-        id: doc.id,
-        text: doc.data().text,
-        category: doc.data().category || 'genericVocab',
-        difficulty: doc.data().difficulty || 50
-      }));
+      // Reset current lists to re-categorize with new prompts
+      mainPrompts.length = 0;
+      easyBackups.length = 0;
+      hardBackups.length = 0;
+
+      // Log difficulty values for debugging
+      console.log(`[API /prompts] Difficulty values of eligible prompts for user ${userId}:`);
+      newEligiblePrompts.forEach((doc) => {
+        const d = doc.data();
+        console.log(`Prompt ID: ${doc.id}, Difficulty: ${d.difficulty || 50}, Category: ${d.category || 'genericVocab'}`);
+      });
+
+      // Categorize newly generated prompts with more flexible logic
+      for (const doc of newEligiblePrompts) {
+        const d = doc.data();
+        let difficulty = d.difficulty || 50;
+        // Ensure difficulty is within 0-100 range
+        difficulty = Math.max(0, Math.min(100, difficulty));
+        const prompt = {
+          id: doc.id,
+          text: d.text,
+          category: d.category || 'genericVocab',
+          difficulty: difficulty
+        };
+        // More flexible categorization: prioritize filling main prompts first
+        if (mainPrompts.length < BATCH_SIZE) {
+          mainPrompts.push(prompt);
+        } else if (difficulty < skill) {
+          if (easyBackups.length < 3) easyBackups.push(prompt);
+        } else {
+          if (hardBackups.length < 3) hardBackups.push(prompt);
+        }
+        if (mainPrompts.length === BATCH_SIZE && easyBackups.length === 3 && hardBackups.length === 3) break;
+      }
+
+      // If still not enough main prompts, fill from any remaining eligible prompts
+      for (const doc of newEligiblePrompts) {
+        if (mainPrompts.length >= BATCH_SIZE) break;
+        const d = doc.data();
+        if (!mainPrompts.some(p => p && p.id === doc.id)) {
+          let difficulty = d.difficulty || 50;
+          difficulty = Math.max(0, Math.min(100, difficulty));
+          mainPrompts.push({
+            id: doc.id,
+            text: d.text,
+            category: d.category || 'genericVocab',
+            difficulty: difficulty
+          });
+        }
+      }
 
       console.log(
-        `[API /prompts] After generation attempt, proceeding with ${prompts.length} prompts for user ${userId}.`,
+        `[API /prompts] After generation and flexible categorization, using ${mainPrompts.length} main prompts, ${easyBackups.length} easy backups, and ${hardBackups.length} hard backups for user ${userId}.`
       );
 
-      if (prompts.length === 0) {
+      // Final check: If after generation still not enough prompts, log error but proceed
+      if (mainPrompts.length === 0) {
         console.error(
-          `[API /prompts] Critical Failure: Initial cache was empty and failed to generate any new prompts for user ${userId}.`,
+          `[API /prompts] Critical Failure: Failed to generate any new prompts for user ${userId}.`
         );
         return NextResponse.json(
           {
-            error: "We're having trouble preparing your exercises right now. Please try again in a few moments.",
+            error: "We're having trouble preparing your exercises right now. Please try again in a few moments."
           },
-          { status: 500 },
+          { status: 500 }
         );
       }
-    }
-
-    // Final check: If after all attempts, prompts array is still empty, it's an issue.
-    if (prompts.length === 0) {
-      console.error(
-        `[API /prompts] Final check: No prompts available for user ${userId}. This should not happen.`,
-      );
-      return NextResponse.json(
-        {
-          error: "No prompts available at this moment. Please try again later.",
-        },
-        { status: 404 }, // Or 500, depending on how critical this is
-      );
     }
 
     // --- Step 3: (Optional) Update lastUsedAt for the fetched prompts --- //
@@ -283,28 +367,54 @@ export async function GET(req: NextRequest) {
     const updateBatch = adminFirestore.batch();
     const now = FieldValue.serverTimestamp(); // Use imported FieldValue
 
-    prompts.forEach((prompt) => {
-      const promptRef = userPromptsRef.doc(prompt.id);
-      updateBatch.update(promptRef, {
-        lastUsedAt: now,
-        timesUsed: FieldValue.increment(1), // Use imported FieldValue
-      });
+    mainPrompts.forEach((prompt) => {
+      if (prompt) {
+        const promptRef = userPromptsRef.doc(prompt.id);
+        updateBatch.update(promptRef, {
+          lastUsedAt: now,
+          timesUsed: FieldValue.increment(1), // Use imported FieldValue
+        });
+      }
+    });
+
+    easyBackups.forEach((prompt) => {
+      if (prompt) {
+        const promptRef = userPromptsRef.doc(prompt.id);
+        updateBatch.update(promptRef, {
+          lastUsedAt: now,
+          timesUsed: FieldValue.increment(1),
+        });
+      }
+    });
+
+    hardBackups.forEach((prompt) => {
+      if (prompt) {
+        const promptRef = userPromptsRef.doc(prompt.id);
+        updateBatch.update(promptRef, {
+          lastUsedAt: now,
+          timesUsed: FieldValue.increment(1),
+        });
+      }
     });
 
     updateBatch.commit().catch((err) => {
       console.error(
         `[API /prompts] Error updating lastUsedAt/timesUsed for prompts for user ${userId}:`,
-        err,
+        err
       );
       // Non-critical error, don't fail the request.
     });
 
-    return NextResponse.json({ prompts });
+    return NextResponse.json({
+      main: mainPrompts,
+      easyBackups: easyBackups,
+      hardBackups: hardBackups
+    });
   } catch (error) {
     console.error("[API /prompts] Error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

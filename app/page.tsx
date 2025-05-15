@@ -187,6 +187,17 @@ export default function Home() {
             A revolutionary app designed to help individuals with aphasia
             improve their communication skills
           </p>
+          <p className="mt-4">
+            This project is <span className="font-semibold">open source</span> — view it on{' '}
+            <a
+              href="https://github.com/Legorobotdude/aphasia-coach"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-primary"
+            >
+              GitHub
+            </a>.
+          </p>
         </div>
       </footer>
     </main>
