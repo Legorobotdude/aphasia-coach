@@ -22,6 +22,7 @@ import useSWR from "swr"; // For fetching prompts
 import { useRecorder } from "@/lib/audio"; // Import the recorder hook
 import { useRouter } from "next/navigation"; // Import useRouter
 import { FieldValue } from "firebase/firestore";
+import { v4 as uuidv4 } from "uuid"; // Add UUID for session key uniqueness
 
 // --- Types --- //
 // Define Prompt and Utterance types matching Firestore and API structures
@@ -269,6 +270,19 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
   const { user } = useAuth();
   const router = useRouter(); // Get router instance
 
+  // --- Unique session identifier for SWR key --- //
+  const [sessionUuid, setSessionUuid] = useState<string>("");
+  useEffect(() => {
+    setSessionUuid(uuidv4()); // Generate a new UUID on mount
+  }, []);
+
+  // Reset SWR and reducer state on unmount to clear session/reset data
+  useEffect(() => {
+    return () => {
+      dispatch({ type: "RESET" });
+    };
+  }, []);
+
   // --- AudioContext for playing API-sourced audio --- //
   // Keep a single AudioContext instance
   const [audioContext, setAudioContext] = React.useState<AudioContext | null>(
@@ -322,7 +336,9 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
     isLoading: promptsLoading,
     mutate: mutatePrompts,
   } = useSWR(
-    !focusModePromptId && user ? "/api/openai/prompts?batch=12" : null,
+    !focusModePromptId && user && sessionUuid
+      ? `/api/openai/prompts?batch=12&session=${sessionUuid}`
+      : null,
     fetcher,
     {
       shouldRetryOnError: false,
