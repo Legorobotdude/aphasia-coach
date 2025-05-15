@@ -256,12 +256,13 @@ function sessionReducer(state: State, action: Action): State {
 // --- Component --- //
 
 // Fetcher function for SWR
-const fetcher = (url: string) => fetch(url).then((res) => {
-  if (!res.ok) {
-    throw new Error('Failed to fetch prompts');
-  }
-  return res.json();
-});
+const fetcher = (url: string) =>
+  fetch(url).then((res) => {
+    if (!res.ok) {
+      throw new Error("Failed to fetch prompts");
+    }
+    return res.json();
+  });
 
 export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
   const [state, dispatch] = useReducer(sessionReducer, initialState);
@@ -321,7 +322,7 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
     isLoading: promptsLoading,
     mutate: mutatePrompts,
   } = useSWR(
-    !focusModePromptId && user ? '/api/openai/prompts?batch=12' : null,
+    !focusModePromptId && user ? "/api/openai/prompts?batch=12" : null,
     fetcher,
     {
       shouldRetryOnError: false,
@@ -333,37 +334,45 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
   useEffect(() => {
     if (focusModePromptId) return; // Skip if in focus mode, handled by another effect
 
-    if (promptsLoading && state.status === 'IDLE') {
-      dispatch({ type: 'FETCH_PROMPTS_START' });
+    if (promptsLoading && state.status === "IDLE") {
+      dispatch({ type: "FETCH_PROMPTS_START" });
     }
-    if (promptsError && state.status === 'FETCHING_PROMPTS') {
-      dispatch({ type: 'FETCH_PROMPTS_ERROR', payload: promptsError.message });
+    if (promptsError && state.status === "FETCHING_PROMPTS") {
+      dispatch({ type: "FETCH_PROMPTS_ERROR", payload: promptsError.message });
     }
-    if (promptsData && state.status === 'FETCHING_PROMPTS') {
+    if (promptsData && state.status === "FETCHING_PROMPTS") {
       if (promptsData && promptsData.main && Array.isArray(promptsData.main)) {
         if (promptsData.main.length > 0) {
           dispatch({
-            type: 'FETCH_PROMPTS_SUCCESS',
+            type: "FETCH_PROMPTS_SUCCESS",
             payload: promptsData.main,
           });
           setEasyBackups(promptsData.easyBackups || []);
           setHardBackups(promptsData.hardBackups || []);
         } else {
-          console.log('No prompts available in the response.');
+          console.log("No prompts available in the response.");
           dispatch({
-            type: 'FETCH_PROMPTS_ERROR',
-            payload: 'No prompts available. Please try again to fetch new prompts.',
+            type: "FETCH_PROMPTS_ERROR",
+            payload:
+              "No prompts available. Please try again to fetch new prompts.",
           });
         }
       } else {
-        console.error('Invalid prompts data structure received:', promptsData);
+        console.error("Invalid prompts data structure received:", promptsData);
         dispatch({
-          type: 'FETCH_PROMPTS_ERROR',
-          payload: 'Invalid data received from prompts API',
+          type: "FETCH_PROMPTS_ERROR",
+          payload: "Invalid data received from prompts API",
         });
       }
     }
-  }, [promptsData, promptsError, promptsLoading, state.status, focusModePromptId, user]);
+  }, [
+    promptsData,
+    promptsError,
+    promptsLoading,
+    state.status,
+    focusModePromptId,
+    user,
+  ]);
 
   const [easyBackups, setEasyBackups] = useState<Prompt[]>([]);
   const [hardBackups, setHardBackups] = useState<Prompt[]>([]);
@@ -371,21 +380,36 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
   const [fastCorrectStreak, setFastCorrectStreak] = useState(0);
 
   // Function to fetch more backup prompts
-  const fetchMorePrompts = async (uid: string | undefined, difficulty: 'lower' | 'higher') => {
+  const fetchMorePrompts = async (
+    uid: string | undefined,
+    difficulty: "lower" | "higher",
+  ) => {
     if (!uid) return;
     try {
-      const skillScores = (user as any)?.skillScores || {};
-      const category = currentPrompt?.category || 'genericVocab';
+      const skillScores =
+        (user && typeof user === "object" && "skillScores" in user
+          ? (user as { skillScores?: { [category: string]: number } })
+              .skillScores
+          : {}) || {};
+      const category = currentPrompt?.category || "genericVocab";
       const currentSkill = skillScores[category] || 50;
-      const response = await fetch(`/api/openai/prompts?category=${category}&skill=${currentSkill}&difficulty=${difficulty}&count=2`);
+      const response = await fetch(
+        `/api/openai/prompts?category=${category}&skill=${currentSkill}&difficulty=${difficulty}&count=2`,
+      );
       if (!response.ok) {
         throw new Error(`Failed to fetch more ${difficulty} prompts`);
       }
       const data = await response.json();
-      if (difficulty === 'lower') {
-        setEasyBackups(prev => [...prev, ...(data.easyBackups || data.main || [])]);
+      if (difficulty === "lower") {
+        setEasyBackups((prev) => [
+          ...prev,
+          ...(data.easyBackups || data.main || []),
+        ]);
       } else {
-        setHardBackups(prev => [...prev, ...(data.hardBackups || data.main || [])]);
+        setHardBackups((prev) => [
+          ...prev,
+          ...(data.hardBackups || data.main || []),
+        ]);
       }
     } catch (error) {
       console.error(`Error fetching more ${difficulty} prompts:`, error);
@@ -598,20 +622,20 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
   const handleProcessRecording = useCallback(
     async (blob: Blob | null, latencyMs: number | null) => {
       if (!blob) {
-        console.error('Processing stopped: No blob received from recorder.');
+        console.error("Processing stopped: No blob received from recorder.");
         dispatch({
-          type: 'PROCESSING_ERROR',
-          payload: 'No audio data received.',
+          type: "PROCESSING_ERROR",
+          payload: "No audio data received.",
         });
         return;
       }
       if (
-        state.status !== 'RECORDING' ||
+        state.status !== "RECORDING" ||
         !user ||
         !state.sessionId ||
         !currentPrompt
       ) {
-        console.warn('Processing stopped: Invalid state or missing data.', {
+        console.warn("Processing stopped: Invalid state or missing data.", {
           status: state.status,
           user: !!user,
           sessionId: state.sessionId,
@@ -620,8 +644,8 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
         return;
       }
 
-      console.log('Dispatching STOP_RECORDING/PROCESSING_START');
-      dispatch({ type: 'STOP_RECORDING' });
+      console.log("Dispatching STOP_RECORDING/PROCESSING_START");
+      dispatch({ type: "STOP_RECORDING" });
 
       try {
         // 1. Transcribe
@@ -752,40 +776,46 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
         // --- End master prompt update --- //
 
         // Fetch and log current user skill scores
-        const userRef = doc(db, 'users', user.uid);
+        const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
         const userData = userSnap.data();
-        console.log('User Skill Scores Before Utterance:', userData?.skillScores || 'Not set');
+        console.log(
+          "User Skill Scores Before Utterance:",
+          userData?.skillScores || "Not set",
+        );
 
         // Update user skill score using Elo-like formula
-        const category = currentPrompt.category || 'genericVocab';
+        const category = currentPrompt.category || "genericVocab";
         const currentSkill = userData?.skillScores?.[category] || 50;
         const difficulty = currentPrompt.difficulty || 50;
-        const expected = 1 / (1 + Math.pow(10, (difficulty - currentSkill) / 20));
+        const expected =
+          1 / (1 + Math.pow(10, (difficulty - currentSkill) / 20));
         const result = score >= 0.8 ? 1 : 0;
         const K = 10; // Increased for more noticeable updates within 0-100 range
         let newSkill = Math.round(currentSkill + K * (result - expected));
         // Cap the score between 0 and 100 as per the difficulty plan
         newSkill = Math.max(0, Math.min(100, newSkill));
-        console.log(`Updating skill for ${category}: Old=${currentSkill}, New=${newSkill}, Expected=${expected}, Result=${result}`);
+        console.log(
+          `Updating skill for ${category}: Old=${currentSkill}, New=${newSkill}, Expected=${expected}, Result=${result}`,
+        );
         // Update Firestore with new skill score
         await updateDoc(userRef, {
           [`skillScores.${category}`]: newSkill,
-          updatedAt: serverTimestamp()
+          updatedAt: serverTimestamp(),
         });
-        console.log('User Skill Scores After Update:', {
+        console.log("User Skill Scores After Update:", {
           ...userData?.skillScores,
-          [category]: newSkill
+          [category]: newSkill,
         });
 
         // Adaptive difficulty logic
         if (score < 0.6) {
-          setWrongStreak(prev => prev + 1);
+          setWrongStreak((prev) => prev + 1);
           setFastCorrectStreak(0);
           if (wrongStreak >= 2 && easyBackups.length > 0) {
             const newPrompt = easyBackups.shift();
             if (newPrompt) {
-              setStatePrompts(prev => {
+              setStatePrompts((prev) => {
                 const newPrompts = [...prev];
                 newPrompts[state.currentPromptIndex] = newPrompt;
                 return newPrompts;
@@ -793,17 +823,17 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
               setEasyBackups([...easyBackups]);
               setWrongStreak(0);
               if (easyBackups.length < 2) {
-                fetchMorePrompts(user?.uid, 'lower');
+                fetchMorePrompts(user?.uid, "lower");
               }
             }
           }
         } else if (score > 0.85 && latencyMs && latencyMs < 2000) {
-          setFastCorrectStreak(prev => prev + 1);
+          setFastCorrectStreak((prev) => prev + 1);
           setWrongStreak(0);
           if (fastCorrectStreak >= 2 && hardBackups.length > 0) {
             const newPrompt = hardBackups.shift();
             if (newPrompt) {
-              setStatePrompts(prev => {
+              setStatePrompts((prev) => {
                 const newPrompts = [...prev];
                 newPrompts[state.currentPromptIndex] = newPrompt;
                 return newPrompts;
@@ -811,7 +841,7 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
               setHardBackups([...hardBackups]);
               setFastCorrectStreak(0);
               if (hardBackups.length < 2) {
-                fetchMorePrompts(user?.uid, 'higher');
+                fetchMorePrompts(user?.uid, "higher");
               }
             }
           }
@@ -825,15 +855,27 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
           payload: { ...utteranceData, id: newUtteranceDocRef.id },
         });
       } catch (error: unknown) {
-        console.error('[VoiceSession] Processing error in handleProcessRecording:', error);
+        console.error(
+          "[VoiceSession] Processing error in handleProcessRecording:",
+          error,
+        );
         const errorMessage =
           error instanceof Error
             ? error.message
-            : 'Failed to process recording';
-        dispatch({ type: 'PROCESSING_ERROR', payload: errorMessage });
+            : "Failed to process recording";
+        dispatch({ type: "PROCESSING_ERROR", payload: errorMessage });
       }
     },
-    [state.status, user, currentPrompt, state.sessionId, wrongStreak, fastCorrectStreak, easyBackups, hardBackups]
+    [
+      state.status,
+      user,
+      currentPrompt,
+      state.sessionId,
+      wrongStreak,
+      fastCorrectStreak,
+      easyBackups,
+      hardBackups,
+    ],
   );
 
   const handleNext = useCallback(async () => {
@@ -940,35 +982,49 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
   }, [currentPrompt, user, dispatch]);
 
   // Helper function to update skill score based on prompt result
-  const updateSkillScore = async (prompt: Prompt, userId: string, success: boolean) => {
-    const userRef = doc(db, 'users', userId);
+  const updateSkillScore = async (
+    prompt: Prompt,
+    userId: string,
+    success: boolean,
+  ) => {
+    const userRef = doc(db, "users", userId);
     const userSnap = await getDoc(userRef);
     const userData = userSnap.data();
-    const category = prompt.category || 'genericVocab';
+    const category = prompt.category || "genericVocab";
     const currentScore = userData?.skillScores?.[category] || 50;
     const difficulty = prompt.difficulty || 50;
-    const expectedScore = 1 / (1 + Math.pow(10, (difficulty - currentScore) / 20));
+    const expectedScore =
+      1 / (1 + Math.pow(10, (difficulty - currentScore) / 20));
     const K = 10; // Increased for more noticeable updates within 0-100 range
-    let newScore = Math.round(currentScore + K * ((success ? 1 : 0) - expectedScore));
+    let newScore = Math.round(
+      currentScore + K * ((success ? 1 : 0) - expectedScore),
+    );
     // Cap the score between 0 and 100 as per the difficulty plan
     newScore = Math.max(0, Math.min(100, newScore));
-    console.log(`Updating skill score for ${category}: current=${currentScore}, difficulty=${difficulty}, expected=${expectedScore}, new=${newScore}, success=${success}`);
+    console.log(
+      `Updating skill score for ${category}: current=${currentScore}, difficulty=${difficulty}, expected=${expectedScore}, new=${newScore}, success=${success}`,
+    );
     // Update Firestore with new skill score
     await updateDoc(userRef, {
       [`skillScores.${category}`]: newScore,
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
     });
-    console.log('User Skill Scores After Update:', {
+    console.log("User Skill Scores After Update:", {
       ...userData?.skillScores,
-      [category]: newScore
+      [category]: newScore,
     });
   };
 
   // Helper to update state prompts (since state is managed by reducer)
-  const setStatePrompts = (promptsOrUpdater: Prompt[] | ((prev: Prompt[]) => Prompt[])) => {
+  const setStatePrompts = (
+    promptsOrUpdater: Prompt[] | ((prev: Prompt[]) => Prompt[]),
+  ) => {
     dispatch({
-      type: 'FETCH_PROMPTS_SUCCESS',
-      payload: typeof promptsOrUpdater === 'function' ? promptsOrUpdater(state.prompts) : promptsOrUpdater,
+      type: "FETCH_PROMPTS_SUCCESS",
+      payload:
+        typeof promptsOrUpdater === "function"
+          ? promptsOrUpdater(state.prompts)
+          : promptsOrUpdater,
     });
   };
 
@@ -1007,11 +1063,15 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
     if (!promptsLoading && !promptsError) {
       return (
         <div>
-          No prompts available or failed to load.{' '}
-          <button onClick={() => {
-            if (mutatePrompts) mutatePrompts(); // Trigger SWR revalidation
-            dispatch({ type: 'RESET' }); // Reset local state
-          }}>Try Again</button>
+          No prompts available or failed to load.{" "}
+          <button
+            onClick={() => {
+              if (mutatePrompts) mutatePrompts(); // Trigger SWR revalidation
+              dispatch({ type: "RESET" }); // Reset local state
+            }}
+          >
+            Try Again
+          </button>
         </div>
       );
     }

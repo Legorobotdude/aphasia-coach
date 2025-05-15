@@ -3,12 +3,8 @@ import "server-only";
 import fs from "fs";
 import path from "path";
 import { adminFirestore } from "@/lib/firebaseAdmin";
-import {
-  DocumentData,
-  QueryDocumentSnapshot,
-  Timestamp,
-} from "firebase-admin/firestore";
-import { calculateDifficulty } from './difficultyUtil';
+import { Timestamp } from "firebase-admin/firestore";
+import { calculateDifficulty } from "./difficultyUtil";
 
 // Initialize the OpenAI client with API key from environment variables
 const openai = new OpenAI({
@@ -99,12 +95,6 @@ export async function generateSpeechFromText(
   }
 }
 
-// Define the Prompt structure expected by the frontend
-interface Prompt {
-  id: string; // This will now be the Firestore document ID
-  text: string;
-}
-
 /**
  * Generates personalized prompts based on user topics AND SAVES THEM TO FIRESTORE.
  * @param uid - User ID to generate prompts for
@@ -112,13 +102,13 @@ interface Prompt {
  */
 export async function generatePromptDocs({
   uid,
-  targetCategory = 'genericVocab',
+  targetCategory = "genericVocab",
   targetDifficulty = 50,
   window = 8,
   batch = 20,
 }: {
   uid: string;
-  targetCategory?: 'open' | 'personalVocab' | 'genericVocab' | 'challenge';
+  targetCategory?: "open" | "personalVocab" | "genericVocab" | "challenge";
   targetDifficulty?: number;
   window?: number;
   batch?: number;
@@ -161,16 +151,15 @@ export async function generatePromptDocs({
   `;
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4.1',
-    messages: [
-      { role: 'system', content: systemPrompt },
-    ],
+    model: "gpt-4.1",
+    messages: [{ role: "system", content: systemPrompt }],
     temperature: 0.7,
     max_tokens: 4096,
   });
 
-  const responseText = response.choices[0].message.content || '';
-  let generatedPrompts: { prompt: string; category: string; answer: string }[] = [];
+  const responseText = response.choices[0].message.content || "";
+  let generatedPrompts: { prompt: string; category: string; answer: string }[] =
+    [];
 
   try {
     const parsedResponse = JSON.parse(responseText);
@@ -178,53 +167,62 @@ export async function generatePromptDocs({
       generatedPrompts = parsedResponse.prompts;
     }
   } catch (error) {
-    console.error('Failed to parse OpenAI response:', error);
+    console.error("Failed to parse OpenAI response:", error);
     return;
   }
 
   const promptPoolRef = adminFirestore
-    .collection('users')
+    .collection("users")
     .doc(uid)
-    .collection('promptPool');
+    .collection("promptPool");
 
   const existingPromptsSnapshot = await promptPoolRef.get();
   const existingPromptTexts = new Set(
-    existingPromptsSnapshot.docs.map(doc => {
+    existingPromptsSnapshot.docs.map((doc) => {
       const data = doc.data();
-      return data.text ? data.text.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
-    })
+      return data.text ? data.text.toLowerCase().replace(/[^a-z0-9]/g, "") : "";
+    }),
   );
 
-  const newPrompts = generatedPrompts.filter(prompt => {
-    const normalizedText = prompt.prompt.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return !existingPromptTexts.has(normalizedText);
-  }).map(prompt => {
-    const difficultyData = calculateDifficulty(prompt.prompt, prompt.category);
-    return {
-      text: prompt.prompt,
-      category: prompt.category,
-      answer: prompt.answer,
-      difficulty: difficultyData.difficulty,
-      difficultyDimensions: {
-        freqNorm: difficultyData.freqNorm,
-        abstractness: difficultyData.abstractness,
-        lengthScale: difficultyData.lengthScale,
-        responseTypeScale: difficultyData.responseTypeScale,
-        semanticDistanceScale: difficultyData.semanticDistanceScale,
-      },
-      createdAt: Timestamp.now(),
-      lastUsed: null,
-      useCount: 0,
-      successRate: 0,
-      lastSuccess: null,
-    };
-  });
+  const newPrompts = generatedPrompts
+    .filter((prompt) => {
+      const normalizedText = prompt.prompt
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+      return !existingPromptTexts.has(normalizedText);
+    })
+    .map((prompt) => {
+      const difficultyData = calculateDifficulty(
+        prompt.prompt,
+        prompt.category,
+      );
+      return {
+        text: prompt.prompt,
+        category: prompt.category,
+        answer: prompt.answer,
+        difficulty: difficultyData.difficulty,
+        difficultyDimensions: {
+          freqNorm: difficultyData.freqNorm,
+          abstractness: difficultyData.abstractness,
+          lengthScale: difficultyData.lengthScale,
+          responseTypeScale: difficultyData.responseTypeScale,
+          semanticDistanceScale: difficultyData.semanticDistanceScale,
+        },
+        createdAt: Timestamp.now(),
+        lastUsed: null,
+        useCount: 0,
+        successRate: 0,
+        lastSuccess: null,
+      };
+    });
 
   for (const prompt of newPrompts) {
     await promptPoolRef.add(prompt);
   }
 
-  console.log(`Added ${newPrompts.length} new prompts to promptPool for user ${uid}.`);
+  console.log(
+    `Added ${newPrompts.length} new prompts to promptPool for user ${uid}.`,
+  );
 }
 
 /**

@@ -6,14 +6,6 @@ import { FieldValue } from "firebase-admin/firestore";
 // Set runtime to Node.js (not Edge)
 export const runtime = "nodejs";
 
-// Define the expected structure of a prompt object for the client
-interface ClientPrompt {
-  id: string;
-  text: string;
-  category: string;
-  difficulty: number;
-}
-
 /**
  * GET handler for generating and retrieving prompts
  * Generates prompts based on user's onboarding answers and stores them in Firestore
@@ -56,7 +48,6 @@ export async function GET(req: NextRequest) {
 
     // --- Step 1: Try to Fetch Prompts from Cache --- //
     const BATCH_SIZE = 12; // Number of prompts to fetch
-    let prompts: ClientPrompt[] = [];
 
     const userPromptsRef = adminFirestore
       .collection("users")
@@ -101,16 +92,22 @@ export async function GET(req: NextRequest) {
     });
 
     // Get user's skill scores to filter prompts by difficulty
-    const userDocRef = adminFirestore.collection('users').doc(userId);
+    const userDocRef = adminFirestore.collection("users").doc(userId);
     const userDoc = await userDocRef.get();
     const userData = userDoc.data();
-    const skillScores = userData?.skillScores || { genericVocab: 50, personalVocab: 50, challenge: 50 };
-    const category = url.searchParams.get('category') || 'genericVocab';
+    const skillScores = userData?.skillScores || {
+      genericVocab: 50,
+      personalVocab: 50,
+      challenge: 50,
+    };
+    const category = url.searchParams.get("category") || "genericVocab";
     const skill = skillScores[category] || 50;
     const band = 8; // Difficulty window
 
     console.log(`[API /prompts] User ${userId} skill scores:`, skillScores);
-    console.log(`[API /prompts] Filtering for category ${category} with skill ${skill}, difficulty band ${skill - band} to ${skill + band}`);
+    console.log(
+      `[API /prompts] Filtering for category ${category} with skill ${skill}, difficulty band ${skill - band} to ${skill + band}`,
+    );
 
     // Filter prompts by difficulty band based on user's skill
     eligiblePrompts = eligiblePrompts.filter((doc) => {
@@ -133,7 +130,9 @@ export async function GET(req: NextRequest) {
         // Exclude if used in last RECENT_DAYS
         if (lastUsedAt > recentCutoff) return false;
         // Filter by wider difficulty band
-        return difficulty >= skill - widerBand && difficulty <= skill + widerBand;
+        return (
+          difficulty >= skill - widerBand && difficulty <= skill + widerBand
+        );
       });
     }
 
@@ -181,8 +180,8 @@ export async function GET(req: NextRequest) {
       const prompt = {
         id: doc.id,
         text: d.text,
-        category: d.category || 'genericVocab',
-        difficulty: difficulty
+        category: d.category || "genericVocab",
+        difficulty: difficulty,
       };
       if (difficulty < skill - band / 2) {
         if (easyBackups.length < 3) easyBackups.push(prompt);
@@ -191,7 +190,12 @@ export async function GET(req: NextRequest) {
       } else {
         if (mainPrompts.length < BATCH_SIZE) mainPrompts.push(prompt);
       }
-      if (mainPrompts.length === BATCH_SIZE && easyBackups.length === 3 && hardBackups.length === 3) break;
+      if (
+        mainPrompts.length === BATCH_SIZE &&
+        easyBackups.length === 3 &&
+        hardBackups.length === 3
+      )
+        break;
     }
 
     // If not enough main prompts, fill from backups
@@ -203,47 +207,69 @@ export async function GET(req: NextRequest) {
     }
 
     console.log(
-      `[API /prompts] Using ${mainPrompts.length} main prompts, ${easyBackups.length} easy backups, and ${hardBackups.length} hard backups for user ${userId}.`
+      `[API /prompts] Using ${mainPrompts.length} main prompts, ${easyBackups.length} easy backups, and ${hardBackups.length} hard backups for user ${userId}.`,
     );
 
     // If not enough main prompts after all filtering, generate more
-    if (mainPrompts.length < BATCH_SIZE || easyBackups.length < 3 || hardBackups.length < 3) {
+    if (
+      mainPrompts.length < BATCH_SIZE ||
+      easyBackups.length < 3 ||
+      hardBackups.length < 3
+    ) {
       console.log(
-        `[API /prompts] Not enough prompts in cache (Main: ${mainPrompts.length}/${BATCH_SIZE}, Easy: ${easyBackups.length}/3, Hard: ${hardBackups.length}/3). Attempting to generate new prompts for user ${userId}.`
+        `[API /prompts] Not enough prompts in cache (Main: ${mainPrompts.length}/${BATCH_SIZE}, Easy: ${easyBackups.length}/3, Hard: ${hardBackups.length}/3). Attempting to generate new prompts for user ${userId}.`,
       );
 
       // Generate prompts for different difficulty levels
       const generationPromises = [
         generatePromptDocs({
           uid: userId,
-          targetCategory: category as 'genericVocab' | 'personalVocab' | 'challenge' | 'open',
+          targetCategory: category as
+            | "genericVocab"
+            | "personalVocab"
+            | "challenge"
+            | "open",
           targetDifficulty: skill,
           window: band,
-          batch: BATCH_SIZE // For main prompts
-        }).then(result => {
-          console.log(`[API /prompts] Generated ${(Array.isArray(result) ? result.length : 'N/A')} main prompts for skill ${skill}`);
+          batch: BATCH_SIZE, // For main prompts
+        }).then((result) => {
+          console.log(
+            `[API /prompts] Generated ${Array.isArray(result) ? result.length : "N/A"} main prompts for skill ${skill}`,
+          );
           return result;
         }),
         generatePromptDocs({
           uid: userId,
-          targetCategory: category as 'genericVocab' | 'personalVocab' | 'challenge' | 'open',
+          targetCategory: category as
+            | "genericVocab"
+            | "personalVocab"
+            | "challenge"
+            | "open",
           targetDifficulty: Math.max(0, skill - 15),
           window: band,
-          batch: 6 // For easy backups
-        }).then(result => {
-          console.log(`[API /prompts] Generated ${(Array.isArray(result) ? result.length : 'N/A')} easy prompts for skill ${Math.max(0, skill - 15)}`);
+          batch: 6, // For easy backups
+        }).then((result) => {
+          console.log(
+            `[API /prompts] Generated ${Array.isArray(result) ? result.length : "N/A"} easy prompts for skill ${Math.max(0, skill - 15)}`,
+          );
           return result;
         }),
         generatePromptDocs({
           uid: userId,
-          targetCategory: category as 'genericVocab' | 'personalVocab' | 'challenge' | 'open',
+          targetCategory: category as
+            | "genericVocab"
+            | "personalVocab"
+            | "challenge"
+            | "open",
           targetDifficulty: Math.min(100, skill + 15),
           window: band,
-          batch: 6 // For hard backups
-        }).then(result => {
-          console.log(`[API /prompts] Generated ${(Array.isArray(result) ? result.length : 'N/A')} hard prompts for skill ${Math.min(100, skill + 15)}`);
+          batch: 6, // For hard backups
+        }).then((result) => {
+          console.log(
+            `[API /prompts] Generated ${Array.isArray(result) ? result.length : "N/A"} hard prompts for skill ${Math.min(100, skill + 15)}`,
+          );
           return result;
-        })
+        }),
       ];
 
       await Promise.all(generationPromises);
@@ -298,10 +324,14 @@ export async function GET(req: NextRequest) {
       hardBackups.length = 0;
 
       // Log difficulty values for debugging
-      console.log(`[API /prompts] Difficulty values of eligible prompts for user ${userId}:`);
+      console.log(
+        `[API /prompts] Difficulty values of eligible prompts for user ${userId}:`,
+      );
       newEligiblePrompts.forEach((doc) => {
         const d = doc.data();
-        console.log(`Prompt ID: ${doc.id}, Difficulty: ${d.difficulty || 50}, Category: ${d.category || 'genericVocab'}`);
+        console.log(
+          `Prompt ID: ${doc.id}, Difficulty: ${d.difficulty || 50}, Category: ${d.category || "genericVocab"}`,
+        );
       });
 
       // Categorize newly generated prompts with more flexible logic
@@ -313,8 +343,8 @@ export async function GET(req: NextRequest) {
         const prompt = {
           id: doc.id,
           text: d.text,
-          category: d.category || 'genericVocab',
-          difficulty: difficulty
+          category: d.category || "genericVocab",
+          difficulty: difficulty,
         };
         // More flexible categorization: prioritize filling main prompts first
         if (mainPrompts.length < BATCH_SIZE) {
@@ -324,39 +354,45 @@ export async function GET(req: NextRequest) {
         } else {
           if (hardBackups.length < 3) hardBackups.push(prompt);
         }
-        if (mainPrompts.length === BATCH_SIZE && easyBackups.length === 3 && hardBackups.length === 3) break;
+        if (
+          mainPrompts.length === BATCH_SIZE &&
+          easyBackups.length === 3 &&
+          hardBackups.length === 3
+        )
+          break;
       }
 
       // If still not enough main prompts, fill from any remaining eligible prompts
       for (const doc of newEligiblePrompts) {
         if (mainPrompts.length >= BATCH_SIZE) break;
         const d = doc.data();
-        if (!mainPrompts.some(p => p && p.id === doc.id)) {
+        if (!mainPrompts.some((p) => p && p.id === doc.id)) {
           let difficulty = d.difficulty || 50;
           difficulty = Math.max(0, Math.min(100, difficulty));
           mainPrompts.push({
             id: doc.id,
             text: d.text,
-            category: d.category || 'genericVocab',
-            difficulty: difficulty
+            category: d.category || "genericVocab",
+            difficulty: difficulty,
           });
         }
       }
 
       console.log(
-        `[API /prompts] After generation and flexible categorization, using ${mainPrompts.length} main prompts, ${easyBackups.length} easy backups, and ${hardBackups.length} hard backups for user ${userId}.`
+        `[API /prompts] After generation and flexible categorization, using ${mainPrompts.length} main prompts, ${easyBackups.length} easy backups, and ${hardBackups.length} hard backups for user ${userId}.`,
       );
 
       // Final check: If after generation still not enough prompts, log error but proceed
       if (mainPrompts.length === 0) {
         console.error(
-          `[API /prompts] Critical Failure: Failed to generate any new prompts for user ${userId}.`
+          `[API /prompts] Critical Failure: Failed to generate any new prompts for user ${userId}.`,
         );
         return NextResponse.json(
           {
-            error: "We're having trouble preparing your exercises right now. Please try again in a few moments."
+            error:
+              "We're having trouble preparing your exercises right now. Please try again in a few moments.",
           },
-          { status: 500 }
+          { status: 500 },
         );
       }
     }
@@ -400,7 +436,7 @@ export async function GET(req: NextRequest) {
     updateBatch.commit().catch((err) => {
       console.error(
         `[API /prompts] Error updating lastUsedAt/timesUsed for prompts for user ${userId}:`,
-        err
+        err,
       );
       // Non-critical error, don't fail the request.
     });
@@ -408,13 +444,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       main: mainPrompts,
       easyBackups: easyBackups,
-      hardBackups: hardBackups
+      hardBackups: hardBackups,
     });
   } catch (error) {
     console.error("[API /prompts] Error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

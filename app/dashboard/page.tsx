@@ -333,31 +333,33 @@ export default function DashboardPage() {
           className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
           onClick={async () => {
             try {
-              setRegenStatus('loading');  // Reuse or adapt existing state if possible
-              setRegenMessage('Resetting prompts...');
-              const response = await fetch('/api/user/reset-prompts', {
-                method: 'POST',
-                credentials: 'include',
+              setRegenStatus("loading"); // Reuse or adapt existing state if possible
+              setRegenMessage("Resetting prompts...");
+              const response = await fetch("/api/user/reset-prompts", {
+                method: "POST",
+                credentials: "include",
               });
               if (response.ok) {
-                setRegenStatus('success');
-                setRegenMessage('Prompts reset successfully.');
+                setRegenStatus("success");
+                setRegenMessage("Prompts reset successfully.");
                 // Optionally refresh data here, e.g., mutatePromptsToRevisit();
               } else {
-                setRegenStatus('error');
-                setRegenMessage('Failed to reset prompts.');
+                setRegenStatus("error");
+                setRegenMessage("Failed to reset prompts.");
               }
-            } catch (error) {
-              setRegenStatus('error');
-              setRegenMessage('Error resetting prompts.');
+            } catch {
+              setRegenStatus("error");
+              setRegenMessage("Error resetting prompts.");
             }
           }}
-          disabled={regenStatus === 'loading'}
+          disabled={regenStatus === "loading"}
         >
-          {regenStatus === 'loading' ? 'Resetting...' : 'Reset Prompts'}
+          {regenStatus === "loading" ? "Resetting..." : "Reset Prompts"}
         </button>
-        {regenStatus !== 'idle' && (
-          <span className={`text-sm ${regenStatus === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+        {regenStatus !== "idle" && (
+          <span
+            className={`text-sm ${regenStatus === "success" ? "text-green-600" : "text-red-600"}`}
+          >
             {regenMessage}
           </span>
         )}
