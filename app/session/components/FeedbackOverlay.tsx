@@ -1,11 +1,11 @@
 'use client';
 
-import React from 'react';
+import * as React from 'react';
 import { CheckCircle, AlertTriangle, XCircle, ArrowRight } from 'lucide-react';
 
 interface FeedbackOverlayProps {
   score: number | null;
-  // feedbackText?: string; // Optional detailed feedback from API
+  feedbackText?: string; // Now supports detailed feedback from API
   onNext: () => void;
   isLastPrompt: boolean;
 }
@@ -16,9 +16,11 @@ interface FeedbackOverlayProps {
  */
 export default function FeedbackOverlay({ 
   score, 
+  feedbackText,
   onNext, 
   isLastPrompt 
 }: FeedbackOverlayProps) {
+  console.log('FeedbackOverlay: feedbackText', feedbackText);
   let bgColor = 'bg-gray-100 dark:bg-gray-700';
   let textColor = 'text-gray-800 dark:text-gray-200';
   let icon = null;
@@ -53,26 +55,31 @@ export default function FeedbackOverlay({
         {feedbackMessage}
       </div>
       {score !== null && (
-          <p className={`text-lg mb-6 ${textColor}`}>
-              Score: {score.toFixed(2)}
-          </p>
+        <p className={`text-lg mb-2 ${textColor}`}>
+          Score: {score.toFixed(2)}
+        </p>
       )}
-      {/* Optional: Display feedbackText from API if available */}
-      {/* {feedbackText && <p className={`mb-6 ${textColor}`}>{feedbackText}</p>} */}
-      
+      <div
+        className={`mb-6 p-3 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 ${textColor}`}
+        style={{ fontStyle: feedbackText ? 'normal' : 'italic', color: feedbackText ? undefined : '#888' }}
+      >
+        {feedbackText && feedbackText.trim().length > 0
+          ? feedbackText
+          : 'No additional feedback returned.'}
+      </div>
       <div className="flex justify-center">
-          <button
-              onClick={onNext}
-              aria-label={buttonText}
-              className={`px-6 py-3 rounded-lg transition-colors duration-150 ease-in-out flex items-center
-                          ${buttonBgColor} text-white focus:outline-none focus:ring-2 focus:ring-opacity-50 
-                          ${isLastPrompt ? 'focus:ring-yellow-400' : 'focus:ring-blue-400' }
-                          focus:ring-offset-2 dark:focus:ring-offset-gray-800
-                        `}
-          >
-              {buttonText}
-              <ArrowRight size={20} className="ml-2" />
-          </button>
+        <button
+          onClick={onNext}
+          aria-label={buttonText}
+          className={`px-6 py-3 rounded-lg transition-colors duration-150 ease-in-out flex items-center
+                        ${buttonBgColor} text-white focus:outline-none focus:ring-2 focus:ring-opacity-50 
+                        ${isLastPrompt ? 'focus:ring-yellow-400' : 'focus:ring-blue-400' }
+                        focus:ring-offset-2 dark:focus:ring-offset-gray-800
+                      `}
+        >
+          {buttonText}
+          <ArrowRight size={20} className="ml-2" />
+        </button>
       </div>
     </div>
   );

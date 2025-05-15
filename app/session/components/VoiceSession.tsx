@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useReducer, useEffect, useCallback, useState } from "react";
+import * as React from "react";
+import { useReducer, useEffect, useCallback, useState } from "react";
 import PromptCard from "./PromptCard"; // Import the real component
 import RecorderControls from "./RecorderControls"; // Import the real component
 import FeedbackOverlay from "./FeedbackOverlay"; // Import the real component
@@ -554,7 +555,7 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
   const currentPrompt = state.prompts[state.currentPromptIndex];
 
   // --- Mock Handlers (Replace with real logic) --- //
-  const handlePlayPrompt = useCallback(async () => {
+  const handlePlayPrompt = React.useCallback(async () => {
     if (
       state.status === "SESSION_READY" &&
       currentPrompt?.text &&
@@ -626,7 +627,7 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
 
   // This function now focuses only on initiating the stop,
   // the actual processing happens in handleProcessRecording via the onDataAvailable callback
-  const handleStopRecordingClick = useCallback(() => {
+  const handleStopRecordingClick = React.useCallback(() => {
     if (isRecording) {
       console.log("Manually stopping recording via button click...");
       stopRecording(); // This will trigger onDataAvailable
@@ -635,7 +636,7 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
   }, [isRecording, stopRecording]);
 
   // New function to handle the processing logic, takes latency
-  const handleProcessRecording = useCallback(
+  const handleProcessRecording = React.useCallback(
     async (blob: Blob | null, latencyMs: number | null) => {
       if (!blob) {
         console.error("Processing stopped: No blob received from recorder.");
@@ -894,7 +895,7 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
     ],
   );
 
-  const handleNext = useCallback(async () => {
+  const handleNext = React.useCallback(async () => {
     if (state.status === "FEEDBACK") {
       console.log("Dispatching NEXT_PROMPT");
       dispatch({ type: "NEXT_PROMPT" });
@@ -973,7 +974,7 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
   ]);
 
   // --- Debug Handlers --- //
-  const handleMarkPassed = useCallback(() => {
+  const handleMarkPassed = React.useCallback(() => {
     if (currentPrompt && user) {
       console.log("Marking prompt as PASSED (Debug)", currentPrompt);
       dispatch({
@@ -985,7 +986,7 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
     }
   }, [currentPrompt, user, dispatch]);
 
-  const handleMarkFailed = useCallback(() => {
+  const handleMarkFailed = React.useCallback(() => {
     if (currentPrompt && user) {
       console.log("Marking prompt as FAILED (Debug)", currentPrompt);
       dispatch({
@@ -1141,7 +1142,7 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
       {state.status === "FEEDBACK" && state.currentUtterance && (
         <FeedbackOverlay
           score={state.currentUtterance.score}
-          // feedbackText={state.currentUtterance.feedback} // Pass if available and needed
+          feedbackText={state.currentUtterance.feedback}
           onNext={handleNext}
           isLastPrompt={state.currentPromptIndex + 1 >= state.prompts.length}
         />
