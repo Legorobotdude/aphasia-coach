@@ -625,6 +625,14 @@ export default function VoiceSession({ focusModePromptId }: VoiceSessionProps) {
     }
   }, [state.status, currentPrompt, audioContext, dispatch]); // Added audioContext and dispatch
 
+  // Effect to auto-play prompts when session is ready or when moving to next prompt
+  useEffect(() => {
+    if (state.status === "SESSION_READY" && currentPrompt?.text && audioContext) {
+      console.log("Auto-playing prompt:", currentPrompt.text);
+      handlePlayPrompt();
+    }
+  }, [state.status, state.currentPromptIndex, currentPrompt?.text, audioContext, handlePlayPrompt]);
+
   // This function now focuses only on initiating the stop,
   // the actual processing happens in handleProcessRecording via the onDataAvailable callback
   const handleStopRecordingClick = React.useCallback(() => {
