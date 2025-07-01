@@ -17,10 +17,32 @@ This document outlines the Firestore collections and their relationships for the
     fullName: string;
     timezone: string;
     onboardComplete: boolean;
+    promptsInitializedAt: Timestamp;
     createdAt: Timestamp;
     updatedAt: Timestamp;
   }
   ```
+- **Subcollections:**
+  - `onboardingAnswers`: Stores user's raw answers from the onboarding wizard. Path: `users/{uid}/onboardingAnswers/{questionLabel}`
+    ```typescript
+    {
+      question: string;    // The onboarding question text
+      transcript: string;  // User's transcribed answer
+      createdAt: Timestamp;
+    }
+    ```
+  - `generatedPrompts`: Stores all practice prompts available to the user, along with their performance data. Path: `users/{uid}/generatedPrompts/{promptDocId}` (See [prompt-system.mdc](mdc:.cursor/rules/prompt-system.mdc) for detailed lifecycle)
+    ```typescript
+    {
+      text: string;                // The prompt text
+      createdAt: Timestamp;        // When the prompt was generated
+      source: string;              // e.g., "onboarding-initial", "api-cached"
+      lastScore: number | null;    // Last score achieved (0-1)
+      timesUsed: number;           // How many times fetched for/used in a session
+      lastUsedAt: Timestamp | null;// Last time fetched for/used in a session
+      ownerUid: string;            // User's UID
+    }
+    ```
 
 ### Topics
 - Path: `topics/{uid}/{topicId}`
@@ -36,41 +58,50 @@ This document outlines the Firestore collections and their relationships for the
   ```
 
 ### Sessions
-- Path: `sessions/{uid}/{sessionId}`
+- Path: `sessions/{sessionId}`
 - Practice session metrics:
   ```typescript
   {
+    ownerUid: string;      // UID of the user who owns the session
     startedAt: Timestamp;
+    promptCount: number;   // Total prompts in the session
+    completedCount: number;// Successfully processed utterances in the session
     durationSec: number;
     accuracy: number;      // average score 0-1
     latencyMs: number;     // average response time
-    createdAt: Timestamp;
+    completedAt: Timestamp; // When the session summary was written
   }
   ```
+- **Subcollections:**
+  - `utterances`: Stores individual voice responses for a session. Path: `sessions/{sessionId}/utterances/{utteranceId}`
+    ```typescript
+    {
+      prompt: string;        // The question asked
+      promptId: string;      // ID of the master prompt from users/{uid}/generatedPrompts
+      response: string;      // Transcribed answer
+      score: number | null;  // 0-1 quality score
+      feedback: string;      // Textual feedback from OpenAI
+      latencyMs: number | null;// Response time
+      createdAt: Timestamp;
+      ownerUid: string;      // User's UID (denormalized for potential queries)
+      sessionId: string;     // Parent session ID (denormalized)
+    }
+    ```
 
-### Utterances
-- Path: `utterances/{sessionId}/{uttId}`
-- Individual voice responses:
-  ```typescript
-  {
-    prompt: string;        // the question asked
-    response: string;      // transcribed answer
-    score: number;         // 0-1 quality score
-    latencyMs: number;     // response time
-    createdAt: Timestamp;
-  }
-  ```
+### Utterances (Legacy or incorrect path - should be subcollection of sessions)
 
 ## Relationships
 
-- Each user can have many topics (1:N)
-- Each user can have many sessions (1:N)
-- Each session can have many utterances (1:N)
-- Utterances reference their parent session via `{sessionId}` in path
+- Each user can have many topics (1:N within `topics/{uid}`).
+- Each user has one `onboardingAnswers` subcollection (conceptually, many answers within it).
+- Each user has one `generatedPrompts` subcollection (many prompts within it).
+- Each user can have many sessions (1:N, queried from top-level `sessions` via `ownerUid`).
+- Each session can have many utterances (1:N, as a subcollection `sessions/{sessionId}/utterances`).
+- Utterances reference their master prompt via `promptId` (linking to `users/{uid}/generatedPrompts/{promptDocId}`).
 
 ## Security Rules
 
 Access control is implemented via Firestore Security Rules:
-- Users can only access their own data
-- To access an utterance, a user must own the parent session
-- See [firestore.rules](mdc:firestore.rules) for implementation details
+- Users can only access their own data (e.g., `users/{uid}`, `users/{uid}/generatedPrompts`, `users/{uid}/onboardingAnswers`).
+- Users can only access sessions and utterances they own (via `ownerUid` field checks).
+- See [firestore.rules](mdc:firestore.rules) for implementation details.

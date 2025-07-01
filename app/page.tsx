@@ -11,19 +11,15 @@ import {
   Brain,
   MessageSquare,
   Clock,
-  Star,
+  TrendingUp,
+  Shield,
+  CheckCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import {
-  Carousel,
-  CarouselApi,
-  CarouselContent,
-  CarouselItem,
-} from "@/components/ui/carousel";
-import { Avatar, AvatarImage } from "@/components/ui/avatar";
+
 import { Grid } from "@/components/ui/grid";
 
 export default function Home() {
@@ -129,19 +125,32 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="w-full pt-8 pb-4 bg-background">
-        <Hero />
-      </div>
-      <div className="w-full py-8 bg-background">
+      {/* Hero Section */}
+      <section className="relative py-20 lg:py-32 bg-gradient-to-br from-background via-background to-primary/5">
+        <div className="absolute inset-0 bg-grid-slate-900/[0.02] bg-[size:30px_30px]" />
+        <div className="relative">
+          <Hero />
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section id="features" className="py-20 lg:py-32 bg-background">
         <FeaturesSection />
-      </div>
-      <div className="w-full py-8 bg-muted/40">
+      </section>
+
+      {/* Benefits Section */}
+      <section className="py-16 bg-muted/30">
+        <BenefitsSection />
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 lg:py-32 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5">
         <Cta
           heading="Ready to Start Your Recovery Journey?"
-          description="Join thousands of users who have improved their communication skills with Aphasia Coach."
+          description="Join thousands of users who have improved their communication skills with Aphasia Coach. Begin your personalized therapy today."
           buttons={{
             primary: {
-              text: "Sign In",
+              text: "Start Free Trial",
               url: "#login",
             },
             secondary: {
@@ -150,54 +159,92 @@ export default function Home() {
             },
           }}
         />
-      </div>
-      <section id="login" className="py-20 bg-background">
-        <div className="max-w-md mx-auto mt-8 mb-16 p-8 bg-card rounded-2xl shadow-2xl px-4 sm:px-8 border border-border">
-          <h2 className="text-2xl font-semibold mb-6 text-center">Sign In</h2>
-          <p className="mb-8 text-center text-muted-foreground">
-            Sign in to start your personalized therapy sessions or continue your
-            progress
-          </p>
-          <Button
-            onClick={handleLogin}
-            disabled={isLoading}
-            className="w-full py-3 px-4 flex items-center justify-center"
-            size="lg"
-          >
-            {isLoading ? (
-              <span className="mr-2">Loading...</span>
-            ) : (
-              <>
-                <GoogleIcon className="mr-2 h-5 w-5" />
-                Sign in with Google
-              </>
-            )}
-          </Button>
-          {error && (
-            <div className="mt-4 p-3 bg-destructive/10 text-destructive rounded-md">
-              {error}
+      </section>
+
+      {/* Login Section */}
+      <section id="login" className="py-20 lg:py-32 bg-background">
+        <div className="container mx-auto px-4 sm:px-8">
+          <div className="max-w-md mx-auto">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold mb-4">Welcome Back</h2>
+              <p className="text-lg text-muted-foreground">
+                Sign in to continue your personalized therapy journey
+              </p>
             </div>
-          )}
+
+            <Card className="p-8 shadow-xl border-2 border-primary/10">
+              <Button
+                onClick={handleLogin}
+                disabled={isLoading}
+                className="w-full py-4 px-6 text-lg font-medium"
+                size="lg"
+              >
+                {isLoading ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                    Signing you in...
+                  </div>
+                ) : (
+                  <>
+                    <GoogleIcon className="mr-3 h-6 w-6" />
+                    Sign in with Google
+                  </>
+                )}
+              </Button>
+
+              {error && (
+                <div className="mt-6 p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg">
+                  <div className="flex items-center">
+                    <Shield className="h-5 w-5 mr-2" />
+                    <span className="font-medium">Authentication Error</span>
+                  </div>
+                  <p className="mt-1 text-sm">{error}</p>
+                </div>
+              )}
+
+              <div className="mt-6 pt-6 border-t border-border">
+                <p className="text-sm text-muted-foreground text-center">
+                  By signing in, you agree to our privacy-focused approach to
+                  your therapy data.
+                </p>
+              </div>
+            </Card>
+          </div>
         </div>
       </section>
-      <footer className="w-full mt-16 pt-10 pb-12 bg-muted text-center text-sm text-muted-foreground border-t border-border">
-        <div className="container mx-auto px-4">
-          <p>Aphasia Coach &copy; {new Date().getFullYear()}</p>
-          <p className="mt-2">
-            A revolutionary app designed to help individuals with aphasia
-            improve their communication skills
-          </p>
-          <p className="mt-4">
-            This project is <span className="font-semibold">open source</span> — view it on{' '}
-            <a
-              href="https://github.com/Legorobotdude/aphasia-coach"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-primary"
-            >
-              GitHub
-            </a>.
-          </p>
+
+      {/* Footer */}
+      <footer className="py-12 bg-muted/50 border-t border-border">
+        <div className="container mx-auto px-4 sm:px-8">
+          <div className="text-center">
+            <div className="flex items-center justify-center mb-4">
+              <Brain className="h-8 w-8 text-primary mr-3" />
+              <span className="text-2xl font-bold">Aphasia Coach</span>
+            </div>
+            <p className="text-lg text-muted-foreground mb-4">
+              Empowering communication recovery through personalized therapy
+            </p>
+            <p className="text-sm text-muted-foreground mb-6">
+              &copy; {new Date().getFullYear()} Aphasia Coach. A revolutionary
+              app designed to help individuals with aphasia improve their
+              communication skills.
+            </p>
+            <div className="flex items-center justify-center">
+              <Badge variant="outline" className="px-4 py-2">
+                <span className="mr-2">🔓</span>
+                Open Source Project
+              </Badge>
+              <span className="mx-3 text-muted-foreground">•</span>
+              <a
+                href="https://github.com/Legorobotdude/aphasia-coach"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:text-primary/80 transition-colors font-medium"
+              >
+                View on GitHub
+              </a>
+            </div>
+          </div>
         </div>
       </footer>
     </main>
@@ -208,40 +255,71 @@ export default function Home() {
 function Hero() {
   return (
     <div className="container mx-auto px-4 sm:px-8">
-      <div className="grid grid-cols-1 gap-10 items-center lg:grid-cols-2">
-        <div className="flex gap-5 flex-col">
-          <div>
-            <Badge variant="outline">New Release</Badge>
-          </div>
-          <div className="flex gap-5 flex-col">
-            <h1 className="text-5xl md:text-7xl max-w-lg tracking-tighter text-left font-semibold">
-              Aphasia Coach
+      <div className="grid grid-cols-1 gap-16 items-center lg:grid-cols-2">
+        <div className="space-y-8">
+          <div className="space-y-4">
+            <Badge variant="outline" className="px-4 py-2 text-sm font-medium">
+              <TrendingUp className="w-4 h-4 mr-2" />
+              Proven Results
+            </Badge>
+            <h1 className="text-5xl lg:text-7xl font-bold tracking-tight">
+              <span className="text-primary">Aphasia</span>{" "}
+              <span className="text-foreground">Coach</span>
             </h1>
-            <p className="text-xl leading-relaxed tracking-tight text-muted-foreground max-w-lg text-left">
-              Improve your communication skills through personalized speech
-              exercises and progress tracking.
+            <p className="text-xl lg:text-2xl leading-relaxed text-muted-foreground max-w-2xl">
+              Rebuild your communication confidence with personalized speech
+              therapy exercises designed specifically for aphasia recovery.
             </p>
           </div>
-          <div className="flex flex-col gap-3 w-full max-w-lg md:flex-row md:gap-6 md:w-auto">
+
+          <div className="flex flex-col sm:flex-row gap-4 w-full max-w-lg">
             <Button
               size="lg"
-              className="w-full md:w-auto gap-4"
+              className="flex-1 py-4 text-lg font-medium shadow-lg"
+              asChild
+            >
+              <a href="#login">
+                Start Your Journey <MoveRight className="w-5 h-5 ml-2" />
+              </a>
+            </Button>
+            <Button
+              size="lg"
               variant="outline"
+              className="flex-1 py-4 text-lg font-medium border-2"
               asChild
             >
               <a href="#features">
-                Learn more <PhoneCall className="w-4 h-4" />
-              </a>
-            </Button>
-            <Button size="lg" className="w-full md:w-auto gap-4" asChild>
-              <a href="#login">
-                Sign in <MoveRight className="w-4 h-4" />
+                Learn More <PhoneCall className="w-5 h-5 ml-2" />
               </a>
             </Button>
           </div>
+
+          <div className="flex items-center space-x-6 text-sm text-muted-foreground">
+            <div className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+              Free to start
+            </div>
+            <div className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+              Evidence-based
+            </div>
+            <div className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+              Privacy-focused
+            </div>
+          </div>
         </div>
-        <div className="bg-muted rounded-xl aspect-square flex items-center justify-center mt-8 lg:mt-0">
-          <Brain className="w-36 h-36 text-primary/60" />
+
+        <div className="relative">
+          <div className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-3xl aspect-square flex items-center justify-center p-8 shadow-2xl">
+            <Brain className="w-48 h-48 text-primary drop-shadow-lg" />
+            <div className="absolute -top-4 -right-4 bg-green-500 text-white p-3 rounded-full shadow-lg">
+              <TrendingUp className="w-6 h-6" />
+            </div>
+            <div className="absolute -bottom-4 -left-4 bg-blue-500 text-white p-3 rounded-full shadow-lg">
+              <MessageSquare className="w-6 h-6" />
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -251,27 +329,112 @@ function Hero() {
 // Features Section
 function FeaturesSection() {
   return (
-    <div id="features" className="container mx-auto px-4 sm:px-8">
-      <div className="text-center mb-16">
-        <h2 className="text-3xl md:text-5xl font-bold mb-4">Features</h2>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Designed to support your recovery with personalized exercises and
-          progress tracking.
+    <div className="container mx-auto px-4 sm:px-8">
+      <div className="text-center mb-20">
+        <Badge variant="outline" className="mb-6 px-4 py-2">
+          <Brain className="w-4 h-4 mr-2" />
+          Designed for Recovery
+        </Badge>
+        <h2 className="text-4xl lg:text-6xl font-bold mb-6">
+          Features That <span className="text-primary">Empower</span>
+        </h2>
+        <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+          Every feature is thoughtfully designed to support your unique recovery
+          journey, providing the tools and confidence you need to improve
+          communication.
         </p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-        {features.map((feature) => (
-          <div
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        {features.map((feature, index) => (
+          <Card
             key={feature.title}
-            className="relative bg-gradient-to-b from-zinc-100/30 to-zinc-300/30 p-8 rounded-3xl overflow-hidden"
+            className={cn(
+              "relative p-8 border-2 hover:shadow-xl transition-all duration-300 group",
+              index === 1 && "lg:scale-105 border-primary/20 shadow-lg",
+            )}
           >
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-lg" />
             <Grid size={20} />
-            <div className="mb-4">{feature.icon}</div>
-            <p className="text-base font-bold text-foreground relative z-20">
-              {feature.title}
-            </p>
-            <p className="text-muted-foreground mt-4 text-base font-normal relative z-20">
-              {feature.description}
+
+            <div className="relative z-10 space-y-4">
+              <div className="p-3 bg-primary/10 rounded-xl w-fit">
+                {feature.icon}
+              </div>
+              <h3 className="text-xl font-bold text-foreground">
+                {feature.title}
+              </h3>
+              <p className="text-muted-foreground leading-relaxed">
+                {feature.description}
+              </p>
+              <div className="pt-2">
+                <span className="text-sm font-medium text-primary group-hover:underline">
+                  Learn more →
+                </span>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Benefits Section
+function BenefitsSection() {
+  const benefits = [
+    {
+      title: "Tailored to You",
+      description:
+        "Every exercise adapts to your specific type of aphasia and recovery stage",
+      icon: Brain,
+    },
+    {
+      title: "Practice Anytime",
+      description:
+        "Accessible therapy exercises available whenever you're ready to practice",
+      icon: Clock,
+    },
+    {
+      title: "Track Progress",
+      description:
+        "See your improvement over time with detailed progress insights",
+      icon: TrendingUp,
+    },
+    {
+      title: "Speech-Focused",
+      description:
+        "Specialized exercises designed specifically for communication recovery",
+      icon: MessageSquare,
+    },
+  ];
+
+  return (
+    <div className="container mx-auto px-4 sm:px-8">
+      <div className="text-center mb-12">
+        <h2 className="text-3xl lg:text-4xl font-bold mb-4">
+          Why Our <span className="text-primary">Personalized</span> Approach
+          Works
+        </h2>
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          Every person's journey with aphasia is unique. Our approach adapts to
+          your specific needs and recovery goals.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        {benefits.map((benefit) => (
+          <div key={benefit.title} className="text-center space-y-4">
+            <div className="flex justify-center mb-4">
+              <div className="p-4 bg-primary/10 rounded-2xl">
+                <benefit.icon className="w-8 h-8 text-primary" />
+              </div>
+            </div>
+            <h3 className="text-xl font-bold text-foreground">
+              {benefit.title}
+            </h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {benefit.description}
             </p>
           </div>
         ))}
@@ -285,197 +448,22 @@ const features = [
   {
     title: "Personalized Exercises",
     description:
-      "Tailored speech and language exercises based on your specific type of aphasia and recovery goals.",
+      "AI-powered therapy plans tailored to your specific type of aphasia, recovery stage, and personal goals for maximum effectiveness.",
     icon: <Brain className="w-8 h-8 text-primary" />,
   },
   {
     title: "Real-time Feedback",
     description:
-      "Receive immediate feedback on pronunciation, word choice, and sentence structure to accelerate improvement.",
+      "Instant, encouraging feedback on pronunciation, word choice, and sentence structure to accelerate your improvement journey.",
     icon: <MessageSquare className="w-8 h-8 text-primary" />,
   },
   {
     title: "Progress Tracking",
     description:
-      "Monitor your recovery journey with detailed analytics and progress reports to celebrate milestones.",
+      "Comprehensive analytics and milestone celebrations to visualize your recovery progress and maintain motivation.",
     icon: <Clock className="w-8 h-8 text-primary" />,
   },
-  /* Expert-Designed feature commented out to avoid potential legal claims
-  {
-    title: "Expert-Designed",
-    description:
-      "Created in collaboration with speech therapists and neurologists to ensure evidence-based approaches.",
-    icon: <Award className="w-8 h-8 text-primary" />,
-  },
-  */
 ];
-
-// TestimonialSection Component
-interface Testimonial {
-  name: string;
-  avatar: string;
-  role: string;
-  review: string;
-  improvement: string;
-  rating?: number;
-}
-
-interface TestimonialSectionProps extends React.HTMLAttributes<HTMLDivElement> {
-  testimonials: Testimonial[];
-  avatarPath?: string;
-}
-
-const TestimonialSection = React.forwardRef<
-  HTMLDivElement,
-  TestimonialSectionProps
->(({ className, testimonials, avatarPath = "", ...props }, ref) => {
-  const [api, setApi] = React.useState<CarouselApi>();
-  const [current, setCurrent] = React.useState(0);
-
-  React.useEffect(() => {
-    if (!api) return;
-    api.on("select", () => {
-      setCurrent(api.selectedScrollSnap());
-    });
-  }, [api]);
-
-  return (
-    <div ref={ref} className={cn("py-16 bg-background", className)} {...props}>
-      <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold tracking-tight mb-2">
-            Patient Success Stories
-          </h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Real stories from real people who have improved their communication
-            skills with Aphasia Coach.
-          </p>
-        </div>
-
-        <Carousel setApi={setApi} className="max-w-screen-xl mx-auto">
-          <CarouselContent>
-            {testimonials.map((testimonial) => (
-              <CarouselItem
-                key={testimonial.name}
-                className="md:basis-1/2 lg:basis-1/3 p-2"
-              >
-                <Card className="h-full flex flex-col p-6 border bg-card">
-                  <div className="flex items-center mb-4">
-                    <Avatar className="h-12 w-12 mr-4">
-                      <AvatarImage
-                        src={`${avatarPath}${testimonial.avatar}`}
-                        alt={testimonial.name}
-                      />
-                    </Avatar>
-                    <div>
-                      <h4 className="font-medium">{testimonial.name}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {testimonial.role}
-                      </p>
-                    </div>
-                    {testimonial.rating && (
-                      <div className="ml-auto flex">
-                        {Array.from({ length: testimonial.rating }).map(
-                          (_, i) => (
-                            <Star
-                              key={i}
-                              className="h-4 w-4 text-amber-400 fill-amber-400"
-                            />
-                          ),
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-start mb-4">
-                    <MessageSquare className="h-5 w-5 text-primary mr-2 mt-1 flex-shrink-0" />
-                    <p className="text-sm text-foreground italic">
-                      &ldquo;{testimonial.review}&rdquo;
-                    </p>
-                  </div>
-
-                  <div className="flex items-start mt-auto">
-                    <Brain className="h-5 w-5 text-primary mr-2 mt-1 flex-shrink-0" />
-                    <p className="text-sm text-muted-foreground">
-                      <span className="font-medium text-foreground">
-                        Improvement:{" "}
-                      </span>
-                      {testimonial.improvement}
-                    </p>
-                  </div>
-                </Card>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-        </Carousel>
-
-        <div className="mt-6 text-center">
-          <div className="flex items-center justify-center gap-2">
-            {testimonials.map((_, index) => (
-              <button
-                key={index}
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full transition-all",
-                  index === current ? "bg-primary w-3" : "bg-primary/35",
-                )}
-                onClick={() => api?.scrollTo(index)}
-                aria-label={`Go to slide ${index + 1}`}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-});
-
-TestimonialSection.displayName = "TestimonialSection";
-
-// Testimonial data - commented out as it's not being used
-/* 
-const testimonials = [
-  {
-    name: "Robert Johnson",
-    avatar: "robert-johnson.jpg",
-    role: "Stroke Survivor, 58",
-    review: "Aphasia Coach has been a game-changer for me. After my stroke, I struggled to find the right words, but the daily exercises have significantly improved my speech.",
-    improvement: "Vocabulary recall improved by 40% in 3 months",
-    rating: 5
-  },
-  {
-    name: "Maria Garcia",
-    avatar: "maria-garcia.jpg",
-    role: "Aphasia Patient, 62",
-    review: "The personalized approach makes all the difference. My speech therapist works with me through the app, and I can practice anytime, anywhere.",
-    improvement: "Now able to form complete sentences in conversation",
-    rating: 5
-  },
-  {
-    name: "David Chen",
-    avatar: "david-chen.jpg",
-    role: "Brain Injury Survivor, 45",
-    review: "I was skeptical at first, but the progress I've made is undeniable. The app's speech recognition gives me immediate feedback that helps me improve.",
-    improvement: "Reading comprehension increased from basic to intermediate level",
-    rating: 4
-  },
-  {
-    name: "Sarah Williams",
-    avatar: "sarah-williams.jpg",
-    role: "Primary Progressive Aphasia Patient, 67",
-    review: "Even with a degenerative condition, I've been able to maintain my communication skills longer than expected. The exercises keep my mind active.",
-    improvement: "Maintained verbal skills despite progressive condition",
-    rating: 5
-  },
-  {
-    name: "James Taylor",
-    avatar: "james-taylor.jpg",
-    role: "Caregiver & Spouse",
-    review: "As a caregiver, I've seen firsthand how Aphasia Coach has helped my husband regain confidence in social situations. We're both grateful for this tool.",
-    improvement: "Partner now participates in family conversations again",
-    rating: 5
-  }
-];
-*/
 
 // Call to Action Section
 interface CtaProps {
@@ -498,7 +486,7 @@ const Cta = ({
   description = "Join thousands of users who have improved their communication skills with Aphasia Coach.",
   buttons = {
     primary: {
-      text: "Download Now",
+      text: "Start Free Trial",
       url: "#",
     },
     secondary: {
@@ -508,30 +496,38 @@ const Cta = ({
   },
 }: CtaProps) => {
   return (
-    <section className="flex items-center justify-center bg-accent/60 py-16 md:py-28">
-      <div className="container mx-auto px-4 sm:px-8">
-        <div className="flex w-full flex-col gap-16 overflow-hidden rounded-2xl bg-accent p-8 md:rounded-xl lg:flex-row lg:items-center lg:p-16 shadow-xl border border-border">
-          <div className="flex-1">
-            <h3 className="mb-3 text-2xl font-semibold md:mb-4 md:text-4xl lg:mb-6">
-              {heading}
-            </h3>
-            <p className="text-muted-foreground lg:text-lg">{description}</p>
-          </div>
-          <div className="flex flex-col gap-2 w-full sm:flex-row sm:w-auto sm:gap-2">
-            {buttons.secondary && (
-              <Button variant="outline" asChild className="w-full sm:w-auto">
-                <a href={buttons.secondary.url}>{buttons.secondary.text}</a>
+    <div className="container mx-auto px-4 sm:px-8">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 p-12 lg:p-20 shadow-2xl border border-primary/20">
+        <div className="absolute inset-0 bg-grid-slate-900/[0.04] bg-[size:20px_20px]" />
+        <div className="relative text-center">
+          <h3 className="text-3xl lg:text-5xl font-bold mb-6">{heading}</h3>
+          <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
+            {description}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
+            {buttons.primary && (
+              <Button
+                size="lg"
+                asChild
+                className="py-4 px-8 text-lg font-medium shadow-lg"
+              >
+                <a href={buttons.primary.url}>{buttons.primary.text}</a>
               </Button>
             )}
-            {buttons.primary && (
-              <Button asChild className="w-full sm:w-auto">
-                <a href={buttons.primary.url}>{buttons.primary.text}</a>
+            {buttons.secondary && (
+              <Button
+                variant="outline"
+                size="lg"
+                asChild
+                className="py-4 px-8 text-lg font-medium border-2"
+              >
+                <a href={buttons.secondary.url}>{buttons.secondary.text}</a>
               </Button>
             )}
           </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 };
 

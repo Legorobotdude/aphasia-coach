@@ -64,9 +64,9 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 max-w-screen-2xl items-center">
-        <div className="mr-4 flex">
-          <Link href="/" className="flex items-center space-x-2">
+      <div className="container flex h-14 max-w-screen-2xl items-center px-6">
+        <div className="mr-8 flex pl-2">
+          <Link href="/" className="flex items-center space-x-3">
             <Brain className="h-6 w-6" />
             <span className="font-semibold">Aphasia Coach</span>
           </Link>
@@ -108,7 +108,7 @@ export function Navbar() {
         )}
 
         {/* Mobile Hamburger Menu */}
-        <div className="flex md:hidden ml-auto">
+        <div className="flex md:hidden ml-auto pr-2">
           <Sheet>
             <SheetTrigger asChild>
               <button
@@ -204,7 +204,7 @@ export function Navbar() {
         </div>
 
         {/* Desktop user actions */}
-        <div className="ml-auto hidden md:flex items-center space-x-4">
+        <div className="ml-auto hidden md:flex items-center space-x-4 pr-2">
           {!loading && (
             <>
               {user ? (
